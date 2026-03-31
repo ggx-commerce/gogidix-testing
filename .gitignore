@@ -1,0 +1,59 @@
+# Environment files contain sensitive data
+environments/*.env
+!environments/*.env.example
+
+# Secrets
+config/secrets.env
+*.secret
+*.key
+*.pem
+
+# Test outputs and reports
+reports/
+*.json
+!test-data/*.json
+
+# k6 archives
+*.archive
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Distribution archives
+dist/
+*.tar.gz
+*.zip
+
+# Node modules (if using JS tools)
+node_modules/
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Local overrides
+.env.local
+.env.*.local
+local.config

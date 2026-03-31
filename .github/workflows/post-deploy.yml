@@ -1,0 +1,411 @@
+# Deployment-Triggered Testing Workflow
+# This workflow is triggered when a deployment completes in the main repository
+
+name: Post-Deployment Testing
+
+on:
+  repository_dispatch:
+    types:
+      - deployment-completed
+      - post-deploy-test
+
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployed environment'
+        required: true
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      deployment_id:
+        description: 'Deployment ID from main repo'
+        required: false
+        type: string
+      skip_smoke:
+        description: 'Skip smoke tests'
+        required: false
+        default: false
+        type: boolean
+      run_full_suite:
+        description: 'Run full test suite (including load tests)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  TEST_TIMEOUT_MINUTES: 60
+  RETRY_COUNT: 3
+
+jobs:
+  # ============================================
+  # DEPLOYMENT VALIDATION
+  # ============================================
+  validate-deployment:
+    name: Validate Deployment Status
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.set_env.outputs.environment }}
+      deployment_id: ${{ steps.set_env.outputs.deployment_id }}
+    
+    steps:
+      - name: Extract deployment information
+        id: set_env
+        run: |
+          if [ "${{ github.event_name }}" == "repository_dispatch" ]; then
+            ENV="${{ github.event.client_payload.environment }}"
+            DEPLOY_ID="${{ github.event.client_payload.deployment_id }}"
+          else
+            ENV="${{ github.event.inputs.environment }}"
+            DEPLOY_ID="${{ github.event.inputs.deployment_id }}"
+          fi
+          
+          echo "environment=${ENV}" >> $GITHUB_OUTPUT
+          echo "deployment_id=${DEPLOY_ID}" >> $GITHUB_OUTPUT
+          
+          echo "::notice::Environment: ${ENV}"
+          echo "::notice::Deployment ID: ${DEPLOY_ID}"
+
+      - name: Wait for deployment to stabilize
+        run: |
+          echo "Waiting for deployment to stabilize..."
+          sleep 30
+
+  # ============================================
+  # SMOKE TESTS (MANDATORY)
+  # ============================================
+  post-deploy-smoke:
+    name: Post-Deployment Smoke Tests
+    runs-on: ubuntu-latest
+    needs: validate-deployment
+    timeout-minutes: 15
+    
+    steps:
+      - name: Checkout testing repository
+        uses: actions/checkout@v4
+
+      - name: Install k6
+        run: |
+          sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747667E0C07BAC51E070E4A62EBDC5BF8
+          echo "deb https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6
+          k6 version
+
+      - name: Configure environment
+        run: |
+          ENV="${{ needs.validate-deployment.outputs.environment }}"
+          source environments/${ENV}.env
+          
+          echo "BASE_URL=${BASE_URL}" >> $GITHUB_ENV
+          echo "TEST_ENVIRONMENT=${ENV}" >> $GITHUB_ENV
+
+      - name: Create smoke test suite
+        run: |
+          mkdir -p k6/scripts/post-deploy
+          
+          cat > k6/scripts/post-deploy/smoke-suite.js << 'SMOKE_EOF'
+          import { check, sleep, fail } from 'k6';
+          import http from 'k6/http';
+          import { Rate, Trend, Counter } from 'k6/metrics';
+
+          const successRate = new Rate('smoke_success_rate');
+          const responseTime = new Trend('smoke_response_time');
+          const errorCount = new Counter('smoke_errors');
+
+          export const options = {
+            stages: [
+              { duration: '30s', target: 3 },
+              { duration: '1m', target: 5 },
+              { duration: '30s', target: 0 },
+            ],
+            thresholds: {
+              http_req_failed: ['rate<0.01'],
+              http_req_duration: ['p(95)<2000'],
+              smoke_success_rate: ['rate>0.98'],
+            },
+          };
+
+          export default function () {
+            const baseUrl = __ENV.BASE_URL;
+            let allPassed = true;
+
+            // 1. Health Check
+            let response = http.get(`${baseUrl}/actuator/health`);
+            allPassed = check(response, {
+              'Health: Status 200': (r) => r.status === 200,
+              'Health: Status is UP': (r) => {
+                try {
+                  const body = JSON.parse(r.body);
+                  return body.status === 'UP';
+                } catch (e) {
+                  return false;
+                }
+              },
+              'Health: Response < 500ms': (r) => r.timings.duration < 500,
+            }, { endpoint: 'health' }) && allPassed;
+
+            if (!allPassed) errorCount.add(1);
+            successRate.add(allPassed);
+            responseTime.add(response.timings.duration);
+
+            sleep(1);
+
+            // 2. Auth Service Health
+            response = http.get(`${baseUrl}/api/v1/auth/health`);
+            check(response, {
+              'Auth Health: Accessible': (r) => r.status === 200 || r.status === 404 || r.status === 503,
+            }, { endpoint: 'auth_health' });
+
+            sleep(1);
+
+            // 3. Payment Service Health
+            response = http.get(`${baseUrl}/api/v1/payments/health`);
+            check(response, {
+              'Payment Health: Accessible': (r) => r.status === 200 || r.status === 404 || r.status === 503,
+            }, { endpoint: 'payment_health' });
+
+            sleep(1);
+
+            // 4. API Gateway Connectivity
+            response = http.options(`${baseUrl}/api/v1`);
+            check(response, {
+              'Gateway: OPTIONS allowed': (r) => r.status < 500,
+            }, { endpoint: 'gateway' });
+
+            sleep(1);
+
+            // 5. Metrics Endpoint
+            response = http.get(`${baseUrl}/actuator/metrics`);
+            check(response, {
+              'Metrics: Accessible': (r) => r.status === 200 || r.status === 404,
+            }, { endpoint: 'metrics' });
+
+            sleep(1);
+          }
+          SMOKE_EOF
+
+      - name: Run smoke tests
+        id: smoke
+        run: |
+          mkdir -p reports/smoke
+          
+          echo "Running post-deployment smoke tests..."
+          
+          k6 run \
+            --out json=reports/smoke/results.json \
+            --summary-export=reports/smoke/summary.json \
+            k6/scripts/post-deploy/smoke-suite.js 2>&1 | tee reports/smoke/output.log
+          
+          # Extract pass/fail status
+          PASS_COUNT=$(grep -c '✓' reports/smoke/output.log || echo "0")
+          FAIL_COUNT=$(grep -c '✗' reports/smoke/output.log || echo "0")
+          
+          echo "pass_count=${PASS_COUNT}" >> $GITHUB_OUTPUT
+          echo "fail_count=${FAIL_COUNT}" >> $GITHUB_OUTPUT
+          
+          if [ "$FAIL_COUNT" -gt 5 ]; then
+            echo "::error::Too many smoke test failures: ${FAIL_COUNT}"
+            exit 1
+          fi
+
+      - name: Upload smoke test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-deploy-smoke-results
+          path: reports/smoke/
+          retention-days: 7
+
+  # ============================================
+  # API CONTRACT VALIDATION
+  # ============================================
+  api-contract-test:
+    name: API Contract Validation
+    runs-on: ubuntu-latest
+    needs: [validate-deployment, post-deploy-smoke]
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: |
+          npm init -y
+          npm install newman newman-reporter-htmlextra
+
+      - name: Create Postman collection (inline)
+        run: |
+          mkdir -p collections
+          
+          cat > collections/post-deploy-contract.json << 'CONTRACT_EOF'
+          {
+            "info": {
+              "name": "Gogidix Post-Deploy Contract Tests",
+              "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+            },
+            "item": [
+              {
+                "name": "Health Checks",
+                "item": [
+                  {
+                    "name": "Gateway Health",
+                    "request": {
+                      "method": "GET",
+                      "header": [],
+                      "url": {
+                        "raw": "{{base_url}}/actuator/health",
+                        "host": ["{{base_url}}"],
+                        "path": ["actuator", "health"]
+                      }
+                    },
+                    "response": []
+                  },
+                  {
+                    "name": "Auth Service Health",
+                    "request": {
+                      "method": "GET",
+                      "header": [],
+                      "url": {
+                        "raw": "{{base_url}}/api/v1/auth/health",
+                        "host": ["{{base_url}}"],
+                        "path": ["api", "v1", "auth", "health"]
+                      }
+                    },
+                    "response": []
+                  }
+                ]
+              },
+              {
+                "name": "Authentication",
+                "item": [
+                  {
+                    "name": "Login - Missing Fields",
+                    "request": {
+                      "method": "POST",
+                      "header": [
+                        {
+                          "key": "Content-Type",
+                          "value": "application/json"
+                        }
+                      ],
+                      "body": {
+                        "mode": "raw",
+                        "raw": "{}"
+                      },
+                      "url": {
+                        "raw": "{{base_url}}/api/v1/auth/login",
+                        "host": ["{{base_url}}"],
+                        "path": ["api", "v1", "auth", "login"]
+                      }
+                    },
+                    "response": []
+                  }
+                ]
+              }
+            ],
+            "variable": [
+              {
+                "key": "base_url",
+                "value": "http://localhost:8080"
+              }
+            ]
+          }
+          CONTRACT_EOF
+
+      - name: Configure environment
+        run: |
+          ENV="${{ needs.validate-deployment.outputs.environment }}"
+          source environments/${ENV}.env
+          
+          # Create Newman environment file
+          cat > environments/newman-env.json << EOF
+          {
+            "id": "newman-env",
+            "name": "${ENV}",
+            "values": [
+              {
+                "key": "base_url",
+                "value": "${BASE_URL}",
+                "enabled": true
+              }
+            ]
+          }
+          EOF
+
+      - name: Run contract tests
+        run: |
+          mkdir -p reports/contract
+          
+          npx newman run collections/post-deploy-contract.json \
+            --environment environments/newman-env.json \
+            --reporters cli,htmlextra,json \
+            --reporter-htmlextra-export reports/contract/report.html \
+            --reporter-json-export reports/contract/report.json \
+            --bail || true
+
+      - name: Upload contract test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: contract-test-results
+          path: reports/contract/
+          retention-days: 7
+
+  # ============================================
+  # NOTIFY MAIN REPOSITORY
+  # ============================================
+  notify-status:
+    name: Notify Deployment Status
+    runs-on: ubuntu-latest
+    needs: [validate-deployment, post-deploy-smoke, api-contract-test]
+    if: always()
+    
+    steps:
+      - name: Determine overall status
+        id: status
+        run: |
+          if [ "${{ needs.post-deploy-smoke.result }}" == "success" ] && \
+             [ "${{ needs.api-contract-test.result }}" == "success" ]; then
+            echo "status=passed" >> $GITHUB_OUTPUT
+            echo "message=All post-deployment tests passed" >> $GITHUB_OUTPUT
+          else
+            echo "status=failed" >> $GITHUB_OUTPUT
+            echo "message=Post-deployment tests failed" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create status badge
+        run: |
+          if [ "${{ steps.status.outputs.status }}" == "passed" ]; then
+            COLOR="brightgreen"
+            STATUS="passed"
+          else
+            COLOR="red"
+            STATUS="failed"
+          fi
+          
+          curl -s "https://img.shields.io/badge/post_deploy_tests-${STATUS}-${COLOR}" > reports/status-badge.svg
+
+      - name: Send status to main repository
+        if: github.event_name == 'repository_dispatch'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.MAIN_REPO_TOKEN }}
+          script: |
+            const status = '${{ steps.status.outputs.status }}';
+            const message = '${{ steps.status.outputs.message }}';
+            
+            // Update deployment status in main repository
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: 'gogidix-platform',
+              sha: '${{ github.event.client_payload.commit_sha }}',
+              state: status === 'passed' ? 'success' : 'failure',
+              target_url: 'https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}',
+              description: message,
+              context: 'post-deploy-tests'
+            });

@@ -1,0 +1,242 @@
+{
+  "testUsers": [
+    {
+      "id": "user_001",
+      "email": "testuser1@gogidix.com",
+      "password": "Test@123456",
+      "firstName": "Test",
+      "lastName": "User1",
+      "role": "CUSTOMER",
+      "country": "NG",
+      "phone": "+2348012345678"
+    },
+    {
+      "id": "user_002",
+      "email": "testuser2@gogidix.com",
+      "password": "Test@123456",
+      "firstName": "Test",
+      "lastName": "User2",
+      "role": "CUSTOMER",
+      "country": "KE",
+      "phone": "+254712345678"
+    },
+    {
+      "id": "user_003",
+      "email": "merchant1@gogidix.com",
+      "password": "Merchant@123",
+      "firstName": "Test",
+      "lastName": "Merchant",
+      "role": "MERCHANT",
+      "country": "NG",
+      "phone": "+2348023456789"
+    },
+    {
+      "id": "user_004",
+      "email": "admin@gogidix.com",
+      "password": "Admin@123",
+      "firstName": "Admin",
+      "lastName": "User",
+      "role": "ADMIN",
+      "country": "US",
+      "phone": "+12025551234"
+    }
+  ],
+  "merchants": [
+    {
+      "id": "merchant_001",
+      "name": "Electronics Hub",
+      "category": "ELECTRONICS",
+      "country": "NG",
+      "rating": 4.8,
+      "verified": true
+    },
+    {
+      "id": "merchant_002",
+      "name": "Fashion Store",
+      "category": "FASHION",
+      "country": "KE",
+      "rating": 4.5,
+      "verified": true
+    },
+    {
+      "id": "merchant_003",
+      "name": "Home & Living",
+      "category": "HOME",
+      "country": "GH",
+      "rating": 4.2,
+      "verified": false
+    }
+  ],
+  "products": [
+    {
+      "id": "prod_001",
+      "name": "Smartphone X Pro",
+      "category": "ELECTRONICS",
+      "price": 299.99,
+      "currency": "USD",
+      "stock": 150,
+      "merchantId": "merchant_001"
+    },
+    {
+      "id": "prod_002",
+      "name": "Laptop Pro 15",
+      "category": "ELECTRONICS",
+      "price": 999.99,
+      "currency": "USD",
+      "stock": 50,
+      "merchantId": "merchant_001"
+    },
+    {
+      "id": "prod_003",
+      "name": "Casual T-Shirt",
+      "category": "FASHION",
+      "price": 29.99,
+      "currency": "USD",
+      "stock": 500,
+      "merchantId": "merchant_002"
+    },
+    {
+      "id": "prod_004",
+      "name": "Running Shoes",
+      "category": "FASHION",
+      "price": 89.99,
+      "currency": "USD",
+      "stock": 200,
+      "merchantId": "merchant_002"
+    },
+    {
+      "id": "prod_005",
+      "name": "Coffee Maker",
+      "category": "HOME",
+      "price": 149.99,
+      "currency": "USD",
+      "stock": 75,
+      "merchantId": "merchant_003"
+    }
+  ],
+  "paymentMethods": [
+    {
+      "type": "CREDIT_CARD",
+      "cardType": "VISA",
+      "lastFour": "4242",
+      "expiryMonth": 12,
+      "expiryYear": 2028
+    },
+    {
+      "type": "CREDIT_CARD",
+      "cardType": "MASTERCARD",
+      "lastFour": "5555",
+      "expiryMonth": 6,
+      "expiryYear": 2027
+    },
+    {
+      "type": "BANK_TRANSFER",
+      "bankName": "First Bank",
+      "accountType": "SAVINGS"
+    },
+    {
+      "type": "DIGITAL_WALLET",
+      "provider": "PAYPAL",
+      "email": "wallet@gogidix.com"
+    }
+  ],
+  "shippingAddresses": [
+    {
+      "label": "Home",
+      "street": "123 Main Street",
+      "city": "Lagos",
+      "state": "Lagos",
+      "country": "NG",
+      "postalCode": "100001",
+      "isDefault": true
+    },
+    {
+      "label": "Office",
+      "street": "456 Business Avenue",
+      "city": "Nairobi",
+      "state": "Nairobi",
+      "country": "KE",
+      "postalCode": "00100",
+      "isDefault": false
+    }
+  ],
+  "deviceProfiles": [
+    {
+      "id": "device_001",
+      "type": "MOBILE",
+      "os": "Android",
+      "browser": "Chrome",
+      "fingerprint": "fp_android_001"
+    },
+    {
+      "id": "device_002",
+      "type": "MOBILE",
+      "os": "iOS",
+      "browser": "Safari",
+      "fingerprint": "fp_ios_002"
+    },
+    {
+      "id": "device_003",
+      "type": "DESKTOP",
+      "os": "Windows",
+      "browser": "Chrome",
+      "fingerprint": "fp_windows_003"
+    }
+  ],
+  "locations": [
+    {
+      "country": "NG",
+      "city": "Lagos",
+      "latitude": 6.5244,
+      "longitude": 3.3792,
+      "timezone": "Africa/Lagos"
+    },
+    {
+      "country": "KE",
+      "city": "Nairobi",
+      "latitude": -1.2921,
+      "longitude": 36.8219,
+      "timezone": "Africa/Nairobi"
+    },
+    {
+      "country": "GH",
+      "city": "Accra",
+      "latitude": 5.6037,
+      "longitude": -0.1870,
+      "timezone": "Africa/Accra"
+    },
+    {
+      "country": "US",
+      "city": "New York",
+      "latitude": 40.7128,
+      "longitude": -74.0060,
+      "timezone": "America/New_York"
+    }
+  ],
+  "fraudPatterns": [
+    {
+      "type": "VELOCITY",
+      "description": "High frequency transactions",
+      "threshold": {
+        "maxTransactionsPerHour": 10,
+        "maxTransactionsPerDay": 50
+      }
+    },
+    {
+      "type": "GEOGRAPHIC",
+      "description": "Impossible travel distance",
+      "threshold": {
+        "maxDistanceKm": 500,
+        "timeWindowMinutes": 60
+      }
+    },
+    {
+      "type": "AMOUNT",
+      "description": "Unusual transaction amount",
+      "threshold": {
+        "maxDeviationFromAverage": 3.0,
+        "minTransactionsForAverage": 5
+      }
+    }
+  ]
+}
