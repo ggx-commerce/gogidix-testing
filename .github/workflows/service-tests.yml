@@ -91,14 +91,15 @@ jobs:
           echo "Service: ${SERVICE}"
           echo "Path: ${SERVICE_PATH}"
 
-      - name: Build parent POM
-        run: mvn install -N -DskipTests -B
-
       - name: Compile service
         run: |
-          SERVICE_PATH="${{ steps.set_paths.outputs.service_path }}"
+          SERVICE="${{ github.event.inputs.service }}"
+          SERVICE_PATH="${{ env.SERVICE_BASE_PATH }}/${SERVICE}"
           echo "Compiling: ${SERVICE_PATH}"
-          mvn compile -pl ${SERVICE_PATH} -am -B
+          
+          # Build directly in the service directory
+          cd ${SERVICE_PATH}
+          mvn compile -B
           
       - name: Upload compile artifacts
         uses: actions/upload-artifact@v4
@@ -150,16 +151,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Build parent POM
-        run: mvn install -N -DskipTests -B
-
       - name: Run unit tests
         run: |
           SERVICE="${{ github.event.inputs.service }}"
           SERVICE_PATH="${{ env.SERVICE_BASE_PATH }}/${SERVICE}"
           echo "Running unit tests for: ${SERVICE_PATH}"
           
-          mvn test -pl ${SERVICE_PATH} -am -B \
+          cd ${SERVICE_PATH}
+          mvn test -B \
             -Dspring.data.mongodb.uri=mongodb://localhost:27017/fraud_detection_test \
             -Dsurefire.failIfNoSpecifiedTests=false
         env:
@@ -207,16 +206,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Build parent POM
-        run: mvn install -N -DskipTests -B
-
       - name: Package JAR
         run: |
           SERVICE="${{ github.event.inputs.service }}"
           SERVICE_PATH="${{ env.SERVICE_BASE_PATH }}/${SERVICE}"
           echo "Building JAR for: ${SERVICE_PATH}"
           
-          mvn package -pl ${SERVICE_PATH} -am -DskipTests -B
+          cd ${SERVICE_PATH}
+          mvn package -DskipTests -B
 
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
@@ -268,16 +265,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Build parent POM
-        run: mvn install -N -DskipTests -B
-
       - name: Run smoke tests
         run: |
           SERVICE="${{ github.event.inputs.service }}"
           SERVICE_PATH="${{ env.SERVICE_BASE_PATH }}/${SERVICE}"
           echo "Running smoke tests for: ${SERVICE_PATH}"
           
-          mvn test -pl ${SERVICE_PATH} -am -B \
+          cd ${SERVICE_PATH}
+          mvn test -B \
             -Dtest=SmokeTest \
             -Dspring.data.mongodb.uri=mongodb://localhost:27017/fraud_detection_test
         env:
@@ -334,26 +329,27 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Build parent POM
-        run: mvn install -N -DskipTests -B
-
       - name: Generate coverage report
         run: |
           SERVICE="${{ github.event.inputs.service }}"
           SERVICE_PATH="${{ env.SERVICE_BASE_PATH }}/${SERVICE}"
           echo "Generating coverage for: ${SERVICE_PATH}"
           
+          cd ${SERVICE_PATH}
+          
           # Run tests with JaCoCo
-          mvn verify -pl ${SERVICE_PATH} -am -B \
+          mvn verify -B \
             -Dspring.data.mongodb.uri=mongodb://localhost:27017/fraud_detection_test
           
           # Generate JaCoCo report
-          mvn jacoco:report -pl ${SERVICE_PATH} -am -B
+          mvn jacoco:report -B
 
       - name: Check coverage thresholds
         run: |
           SERVICE="${{ github.event.inputs.service }}"
           SERVICE_PATH="${{ env.SERVICE_BASE_PATH }}/${SERVICE}"
+          
+          cd ${SERVICE_PATH}
           
           echo "Checking Financial-Grade coverage thresholds..."
           echo "- Line Coverage: >= ${{ env.COVERAGE_THRESHOLD_LINE }}%"
@@ -361,7 +357,7 @@ jobs:
           echo "- Mutation Score: >= ${{ env.COVERAGE_THRESHOLD_MUTATION }}%"
           
           # Run JaCoCo check
-          mvn jacoco:check -pl ${SERVICE_PATH} -am -B || true
+          mvn jacoco:check -B || true
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
@@ -416,16 +412,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Build parent POM
-        run: mvn install -N -DskipTests -B
-
       - name: Run mutation tests
         run: |
           SERVICE="${{ github.event.inputs.service }}"
           SERVICE_PATH="${{ env.SERVICE_BASE_PATH }}/${SERVICE}"
           echo "Running mutation tests for: ${SERVICE_PATH}"
           
-          mvn verify -pl ${SERVICE_PATH} -am -Pci -B
+          cd ${SERVICE_PATH}
+          mvn verify -Pci -B
         env:
           SPRING_DATA_MONGODB_URI: mongodb://localhost:27017/fraud_detection_test
 
