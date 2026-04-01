@@ -1,0 +1,31 @@
+name: Debug Service Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  debug-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout shared-business-logics
+        uses: actions/checkout@v4
+        with:
+          repository: ggx-commerce/shared-business-logics
+          ref: dev
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - name: Show service pom.xml
+        run: |
+          echo "=== Service POM ==="
+          cat ai-services/Backend/Java/security-fraud-prevention/ai-fraud-detection-service/pom.xml
+
+      - name: Try to compile service
+        run: |
+          echo "=== Compiling service ==="
+          cd ai-services/Backend/Java/security-fraud-prevention/ai-fraud-detection-service
+          mvn compile -B -e 2>&1 | head -50
