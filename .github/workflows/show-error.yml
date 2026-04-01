@@ -1,0 +1,26 @@
+name: Show Compilation Error
+
+on:
+  workflow_dispatch:
+
+jobs:
+  show-error:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout shared-business-logics
+        uses: actions/checkout@v4
+        with:
+          repository: ggx-commerce/shared-business-logics
+          ref: dev
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - name: Show compilation error
+        run: |
+          echo "=== Attempting to compile ai-fraud-detection-service ==="
+          cd ai-services/Backend/Java/security-fraud-prevention/ai-fraud-detection-service
+          mvn compile -B -e 2>&1 | head -100
