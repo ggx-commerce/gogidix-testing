@@ -71,15 +71,14 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: 'maven'
 
-      - name: Cache Maven packages
+      - name: Cache Maven packages (shared libs)
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-shared-libs-${{ hashFiles('foundation-domain/**/pom.xml') }}
+          key: ${{ runner.os }}-maven-gogidix-${{ hashFiles('foundation-domain/**/pom.xml') }}
           restore-keys: |
-            ${{ runner.os }}-maven-shared-libs-
+            ${{ runner.os }}-maven-gogidix-
 
       - name: Build shared libraries
         run: |
@@ -87,45 +86,22 @@ jobs:
           echo "Building Foundation Shared Libraries"
           echo "============================================"
 
-          # Navigate to shared-libraries
+          # Navigate to shared-libraries parent
           cd foundation-domain/shared-libraries/Backend/Java
 
           # List available libraries
           echo "Available library folders:"
           ls -la
 
-          # Install shared-libraries-bom first
-          echo "Installing shared-libraries-bom..."
-          cd shared-libraries-bom
-          mvn install -DskipTests -B
+          # Build all modules from parent POM
+          echo "Building all shared libraries from parent POM..."
+          mvn clean install -DskipTests -B -U
 
-          # Install core libraries
-          echo "Installing core libraries..."
-          cd ../core-libraries
-          mvn install -DskipTests -B || echo "Some core libs failed"
-
-          # Install security libraries
-          echo "Installing security libraries..."
-          cd ../security-libraries/shared-security
-          mvn install -DskipTests -B
-
-          cd ../shared-audit
-          mvn install -DskipTests -B
-
-          # Install communication libraries
-          echo "Installing communication libraries..."
-          cd ../../communication-libraries
-          mvn install -DskipTests -B || echo "Communication libs failed"
-
-          # Install utility libraries
-          echo "Installing utility libraries..."
-          cd ../utility-libraries
-          mvn install -DskipTests -B || echo "Utility libs failed"
-
-          # Install testing libraries
-          echo "Installing testing libraries..."
-          cd ../testing-libraries
-          mvn install -DskipTests -B || echo "Testing libs failed"
+          # Verify installed artifacts
+          echo "============================================"
+          echo "Verifying installed artifacts..."
+          echo "============================================"
+          ls -la ~/.m2/repository/com/gogidix/shared/ || echo "No artifacts found!"
 
           echo "============================================"
           echo "Shared libraries build complete!"
@@ -161,9 +137,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          key: ${{ runner.os }}-maven-gogidix-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
-            ${{ runner.os }}-maven-
+            ${{ runner.os }}-maven-gogidix-
 
       - name: Set service paths
         id: set_paths
@@ -196,7 +172,7 @@ jobs:
           # Build directly in the service directory
           cd ${SERVICE_PATH}
           echo "Current directory: $(pwd)"
-          mvn compile -B -X 2>&1 | tee compile.log || {
+          mvn compile -B -U -X 2>&1 | tee compile.log || {
             echo "============================================"
             echo "COMPILATION FAILED - Full Error Output:"
             echo "============================================"
@@ -250,9 +226,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          key: ${{ runner.os }}-maven-gogidix-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
-            ${{ runner.os }}-maven-
+            ${{ runner.os }}-maven-gogidix-
 
       - name: Run unit tests
         run: |
@@ -261,7 +237,7 @@ jobs:
           echo "Running unit tests for: ${SERVICE_PATH}"
 
           cd ${SERVICE_PATH}
-          mvn test -B \
+          mvn test -B -U \
             -Dspring.data.mongodb.uri=mongodb://localhost:27017/fraud_detection_test \
             -Dsurefire.failIfNoSpecifiedTests=false
         env:
@@ -305,9 +281,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          key: ${{ runner.os }}-maven-gogidix-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
-            ${{ runner.os }}-maven-
+            ${{ runner.os }}-maven-gogidix-
 
       - name: Package JAR
         run: |
@@ -362,9 +338,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          key: ${{ runner.os }}-maven-gogidix-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
-            ${{ runner.os }}-maven-
+            ${{ runner.os }}-maven-gogidix-
 
       - name: Run smoke tests
         run: |
@@ -424,9 +400,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          key: ${{ runner.os }}-maven-gogidix-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
-            ${{ runner.os }}-maven-
+            ${{ runner.os }}-maven-gogidix-
 
       - name: Generate coverage report
         run: |
@@ -500,9 +476,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          key: ${{ runner.os }}-maven-gogidix-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
-            ${{ runner.os }}-maven-
+            ${{ runner.os }}-maven-gogidix-
 
       - name: Run mutation tests
         run: |
