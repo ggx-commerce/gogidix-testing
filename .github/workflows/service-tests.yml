@@ -95,17 +95,37 @@ jobs:
         run: |
           SERVICE="${{ github.event.inputs.service }}"
           SERVICE_PATH="${{ env.SERVICE_BASE_PATH }}/${SERVICE}"
+          echo "============================================"
           echo "Compiling: ${SERVICE_PATH}"
-          
+          echo "============================================"
+
+          # List directory structure
+          ls -la ${SERVICE_PATH} || echo "Directory not found!"
+
+          # Check if pom.xml exists
+          if [ -f "${SERVICE_PATH}/pom.xml" ]; then
+            echo "pom.xml found"
+          else
+            echo "ERROR: pom.xml not found in ${SERVICE_PATH}"
+            exit 1
+          fi
+
           # Build directly in the service directory
-          cd ${{ env.SERVICE_BASE_PATH }}/${{ github.event.inputs.service }}
-          mvn compile -B
-          
+          cd ${SERVICE_PATH}
+          echo "Current directory: $(pwd)"
+          mvn compile -B -X 2>&1 | tee compile.log || {
+            echo "============================================"
+            echo "COMPILATION FAILED - Full Error Output:"
+            echo "============================================"
+            cat compile.log
+            exit 1
+          }
+
       - name: Upload compile artifacts
         uses: actions/upload-artifact@v4
         with:
           name: compile-output
-          path: target/classes/
+          path: ${{ steps.set_paths.outputs.service_path }}/target/classes/
           retention-days: 1
 
   # ============================================
@@ -153,9 +173,11 @@ jobs:
 
       - name: Run unit tests
         run: |
-          cd ${{ env.SERVICE_BASE_PATH }}/${{ github.event.inputs.service }}
-          echo "Running unit tests for: ${{ github.event.inputs.service }}"
-          
+          SERVICE="${{ github.event.inputs.service }}"
+          SERVICE_PATH="${{ env.SERVICE_BASE_PATH }}/${SERVICE}"
+          echo "Running unit tests for: ${SERVICE_PATH}"
+
+          cd ${SERVICE_PATH}
           mvn test -B \
             -Dspring.data.mongodb.uri=mongodb://localhost:27017/fraud_detection_test \
             -Dsurefire.failIfNoSpecifiedTests=false
