@@ -1,0 +1,28 @@
+name: List Directory
+
+on:
+  workflow_dispatch:
+
+jobs:
+  list-files:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout shared-business-logics
+        uses: actions/checkout@v4
+        with:
+          repository: ggx-commerce/shared-business-logics
+          ref: dev
+
+      - name: List service directory
+        run: |
+          echo "=== Listing ai-services directory ==="
+          ls -la ai-services/
+          
+          echo "=== Listing Backend/Java directory ==="
+          ls -la ai-services/Backend/Java/
+          
+          echo "=== Listing security-fraud-prevention directory ==="
+          ls -la ai-services/Backend/Java/security-fraud-prevention/
+          
+          echo "=== Listing ai-fraud-detection-service directory ==="
+          ls -la ai-services/Backend/Java/security-fraud-prevention/ai-fraud-detection-service/
