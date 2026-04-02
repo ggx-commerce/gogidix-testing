@@ -76,9 +76,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-gogidix-${{ hashFiles('foundation-domain/**/pom.xml') }}
+          key: ${{ runner.os }}-maven-shared-libs-v1
           restore-keys: |
-            ${{ runner.os }}-maven-gogidix-
+            ${{ runner.os }}-maven-shared-libs-
 
       - name: Build shared libraries
         run: |
@@ -137,9 +137,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-gogidix-${{ hashFiles('**/pom.xml') }}
+          key: ${{ runner.os }}-maven-shared-libs-v1
           restore-keys: |
-            ${{ runner.os }}-maven-gogidix-
+            ${{ runner.os }}-maven-shared-libs-
 
       - name: Set service paths
         id: set_paths
@@ -226,9 +226,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-gogidix-${{ hashFiles('**/pom.xml') }}
+          key: ${{ runner.os }}-maven-shared-libs-v1
           restore-keys: |
-            ${{ runner.os }}-maven-gogidix-
+            ${{ runner.os }}-maven-shared-libs-
 
       - name: Run unit tests
         run: |
@@ -281,9 +281,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-gogidix-${{ hashFiles('**/pom.xml') }}
+          key: ${{ runner.os }}-maven-shared-libs-v1
           restore-keys: |
-            ${{ runner.os }}-maven-gogidix-
+            ${{ runner.os }}-maven-shared-libs-
 
       - name: Package JAR
         run: |
@@ -338,9 +338,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-gogidix-${{ hashFiles('**/pom.xml') }}
+          key: ${{ runner.os }}-maven-shared-libs-v1
           restore-keys: |
-            ${{ runner.os }}-maven-gogidix-
+            ${{ runner.os }}-maven-shared-libs-
 
       - name: Run smoke tests
         run: |
@@ -400,9 +400,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-gogidix-${{ hashFiles('**/pom.xml') }}
+          key: ${{ runner.os }}-maven-shared-libs-v1
           restore-keys: |
-            ${{ runner.os }}-maven-gogidix-
+            ${{ runner.os }}-maven-shared-libs-
 
       - name: Generate coverage report
         run: |
@@ -476,9 +476,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-gogidix-${{ hashFiles('**/pom.xml') }}
+          key: ${{ runner.os }}-maven-shared-libs-v1
           restore-keys: |
-            ${{ runner.os }}-maven-gogidix-
+            ${{ runner.os }}-maven-shared-libs-
 
       - name: Run mutation tests
         run: |
