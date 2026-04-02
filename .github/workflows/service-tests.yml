@@ -95,7 +95,7 @@ jobs:
 
           # Build all modules from parent POM
           echo "Building all shared libraries from parent POM..."
-          mvn clean install -DskipTests -B -U
+          mvn clean install -DskipTests -B
 
           # Verify installed artifacts
           echo "============================================"
@@ -172,7 +172,7 @@ jobs:
           # Build directly in the service directory
           cd ${SERVICE_PATH}
           echo "Current directory: $(pwd)"
-          mvn compile -B -U -X 2>&1 | tee compile.log || {
+          mvn compile -B -X 2>&1 | tee compile.log || {
             echo "============================================"
             echo "COMPILATION FAILED - Full Error Output:"
             echo "============================================"
@@ -237,7 +237,7 @@ jobs:
           echo "Running unit tests for: ${SERVICE_PATH}"
 
           cd ${SERVICE_PATH}
-          mvn test -B -U \
+          mvn test -B \
             -Dspring.data.mongodb.uri=mongodb://localhost:27017/fraud_detection_test \
             -Dsurefire.failIfNoSpecifiedTests=false
         env:
