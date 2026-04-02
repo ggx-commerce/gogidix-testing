@@ -131,7 +131,6 @@ jobs:
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
-          cache: 'maven'
 
       - name: Cache Maven packages
         uses: actions/cache@v4
@@ -220,7 +219,6 @@ jobs:
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
-          cache: 'maven'
 
       - name: Cache Maven packages
         uses: actions/cache@v4
@@ -275,7 +273,6 @@ jobs:
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
-          cache: 'maven'
 
       - name: Cache Maven packages
         uses: actions/cache@v4
@@ -332,7 +329,6 @@ jobs:
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
-          cache: 'maven'
 
       - name: Cache Maven packages
         uses: actions/cache@v4
@@ -394,7 +390,6 @@ jobs:
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
-          cache: 'maven'
 
       - name: Cache Maven packages
         uses: actions/cache@v4
@@ -470,7 +465,6 @@ jobs:
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
-          cache: 'maven'
 
       - name: Cache Maven packages
         uses: actions/cache@v4
