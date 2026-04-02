@@ -149,16 +149,11 @@ jobs:
       - name: Validate configuration files
         run: |
           echo "Validating environment configuration..."
-          
-          # Check if environment file exists
-          ENV_FILE="environments/${{ steps.set_env.outputs.env_config }}.env"
-          if [ -f "$ENV_FILE" ]; then
-            echo "✓ Environment file found: $ENV_FILE"
-          else
-            echo "✗ Environment file not found: $ENV_FILE"
-            exit 1
-          fi
-          
+
+          # Note: .env files are not committed to git (security)
+          # They should be provided via GitHub Secrets in CI/CD
+          echo "::notice::Environment files managed via GitHub Secrets"
+
           # Validate k6 scripts
           echo "Validating k6 scripts..."
           for script in k6/scripts/*.js; do
@@ -166,7 +161,7 @@ jobs:
               echo "✓ Found: $script"
             fi
           done
-          
+
           echo "✓ Configuration validation complete"
 
   # ============================================
@@ -449,10 +444,38 @@ jobs:
           fi
           
           echo "Environment: $ENV"
-          source environments/${ENV}.env
-          
+
+          # Create env file from GitHub Secrets if it doesn't exist
+          if [ ! -f "environments/${ENV}.env" ]; then
+            echo "Creating env file from GitHub Secrets..."
+            mkdir -p environments
+
+            # Add common environment variables from secrets
+            if [ -n "${{ secrets.BASE_URL }}" ]; then
+              echo "BASE_URL=${{ secrets.BASE_URL }}" >> environments/${ENV}.env
+            fi
+
+            # Add environment-specific variables
+            if [ "$ENV" == "dev" ] && [ -n "${{ secrets.DEV_BASE_URL }}" ]; then
+              echo "BASE_URL=${{ secrets.DEV_BASE_URL }}" >> environments/${ENV}.env
+            fi
+
+            if [ "$ENV" == "staging" ] && [ -n "${{ secrets.STAGING_BASE_URL }}" ]; then
+              echo "BASE_URL=${{ secrets.STAGING_BASE_URL }}" >> environments/${ENV}.env
+            fi
+
+            if [ "$ENV" == "prod" ] && [ -n "${{ secrets.PROD_BASE_URL }}" ]; then
+              echo "BASE_URL=${{ secrets.PROD_BASE_URL }}" >> environments/${ENV}.env
+            fi
+
+            echo "Created env file from secrets"
+          fi
+
+          # Source environment file
+          source environments/${ENV}.env || echo "Warning: Could not source env file, using defaults"
+
           # Export variables for k6
-          echo "BASE_URL=${BASE_URL}" >> $GITHUB_ENV
+          echo "BASE_URL=${BASE_URL:-http://localhost:8080}" >> $GITHUB_ENV
           echo "TEST_ENVIRONMENT=${ENV}" >> $GITHUB_ENV
 
       - name: Create smoke test script
@@ -689,11 +712,38 @@ jobs:
           else
             ENV="dev"
           fi
-          
-          source environments/${ENV}.env
-          
+
+          # Create env file from GitHub Secrets if it doesn't exist
+          if [ ! -f "environments/${ENV}.env" ]; then
+            echo "Creating env file from GitHub Secrets..."
+            mkdir -p environments
+
+            # Add environment-specific variables
+            if [ "$ENV" == "dev" ] && [ -n "${{ secrets.DEV_BASE_URL }}" ]; then
+              echo "BASE_URL=${{ secrets.DEV_BASE_URL }}" >> environments/${ENV}.env
+            fi
+
+            if [ "$ENV" == "staging" ] && [ -n "${{ secrets.STAGING_BASE_URL }}" ]; then
+              echo "BASE_URL=${{ secrets.STAGING_BASE_URL }}" >> environments/${ENV}.env
+            fi
+
+            if [ "$ENV" == "prod" ] && [ -n "${{ secrets.PROD_BASE_URL }}" ]; then
+              echo "BASE_URL=${{ secrets.PROD_BASE_URL }}" >> environments/${ENV}.env
+            fi
+
+            # Add auth token if available
+            if [ -n "${{ secrets.AUTH_TOKEN }}" ]; then
+              echo "AUTH_TOKEN=${{ secrets.AUTH_TOKEN }}" >> environments/${ENV}.env
+            fi
+
+            echo "Created env file from secrets"
+          fi
+
+          # Source environment file
+          source environments/${ENV}.env || echo "Warning: Could not source env file, using defaults"
+
           # Export for k6
-          echo "BASE_URL=${BASE_URL}" >> $GITHUB_ENV
+          echo "BASE_URL=${BASE_URL:-http://localhost:8080}" >> $GITHUB_ENV
           echo "AUTH_TOKEN=${AUTH_TOKEN:-}" >> $GITHUB_ENV
           echo "TEST_RUN_ID=${{ needs.setup.outputs.test_run_id }}" >> $GITHUB_ENV
 
