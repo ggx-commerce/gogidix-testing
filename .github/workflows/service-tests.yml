@@ -64,6 +64,7 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
           cache: false
+          overwrite-settings: false
 
       - name: Configure Maven for GitHub Packages
         run: |
@@ -149,6 +150,7 @@ jobs:
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
+          overwrite-settings: false
 
       - name: Cache Maven packages
         uses: actions/cache@v4
@@ -272,6 +274,7 @@ jobs:
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
+          overwrite-settings: false
 
       - name: Cache Maven packages
         uses: actions/cache@v4
@@ -361,6 +364,7 @@ jobs:
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
+          overwrite-settings: false
 
       - name: Cache Maven packages
         uses: actions/cache@v4
@@ -452,6 +456,7 @@ jobs:
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
+          overwrite-settings: false
 
       - name: Cache Maven packages
         uses: actions/cache@v4
@@ -548,6 +553,7 @@ jobs:
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
+          overwrite-settings: false
 
       - name: Cache Maven packages
         uses: actions/cache@v4
@@ -658,6 +664,7 @@ jobs:
         with:
           java-version: ${{ env.JAVA_VERSION }}
           distribution: 'temurin'
+          overwrite-settings: false
 
       - name: Cache Maven packages
         uses: actions/cache@v4
