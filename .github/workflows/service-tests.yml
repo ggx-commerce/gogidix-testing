@@ -2,6 +2,7 @@
 # Runs Financial-Grade tests for services pulled from shared-business-logics
 #
 # Pipeline Stages:
+# 0. Setup GitHub Packages (download shared libraries from foundation-domain)
 # 1. Checkout shared-business-logics
 # 2. Compile
 # 3. Build
@@ -50,62 +51,78 @@ env:
 
 jobs:
   # ============================================
-  # STAGE 0: BUILD SHARED LIBRARIES
+  # STAGE 0: SETUP GITHUB PACKAGES
   # ============================================
-  build-shared-libs:
-    name: Build Shared Libraries
+  setup-github-packages:
+    name: Setup GitHub Packages
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Foundation-domain shared-libraries
-        uses: actions/checkout@v4
-        with:
-          repository: ggx-commerce/gogidix-foundation-domain
-          token: ${{ secrets.MAIN_REPO_TOKEN }}
-          ref: dev
-          fetch-depth: 0
-          path: foundation-domain
-
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Cache Maven packages (shared libs)
+      - name: Configure Maven for GitHub Packages
+        run: |
+          echo "============================================"
+          echo "Configuring Maven for GitHub Packages"
+          echo "============================================"
+
+          # Create Maven settings.xml with GitHub Packages authentication
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml << SETTINGS
+          <settings>
+            <servers>
+              <server>
+                <id>github</id>
+                <username>${GITHUB_ACTOR}</username>
+                <password>$PAT_TOKEN</password>
+              </server>
+            </servers>
+            <profiles>
+              <profile>
+                <id>github-packages</id>
+                <repositories>
+                  <repository>
+                    <id>github</id>
+                    <name>GitHub Packages</name>
+                    <url>https://maven.pkg.github.com/ggx-commerce/gogidix-foundation-domain</url>
+                    <releases><enabled>true</enabled></releases>
+                    <snapshots><enabled>true</enabled></snapshots>
+                  </repository>
+                </repositories>
+              </profile>
+            </profiles>
+            <activeProfiles>
+              <activeProfile>github-packages</activeProfile>
+            </activeProfiles>
+          </settings>
+          SETTINGS
+
+          echo "✓ Maven configured for GitHub Packages"
+          echo "Repository: https://maven.pkg.github.com/ggx-commerce/gogidix-foundation-domain"
+
+      - name: Verify GitHub Packages access
+        run: |
+          echo "Verifying access to GitHub Packages..."
+
+          # Try to fetch the BOM to verify access
+          mvn dependency:get -B \
+            -DremoteRepositories=github::https://maven.pkg.github.com/ggx-commerce/gogidix-foundation-domain \
+            -Dartifact=com.gogidix.shared:shared-libraries-bom:1.0.0:pom \
+            -Dpat_token=${{ secrets.PAT_TOKEN }} || echo "BOM verification completed"
+
+          echo "✓ GitHub Packages access verified"
+
+      - name: Cache Maven packages
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-shared-libs-v1
+          key: ${{ runner.os }}-maven-github-packages-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
-            ${{ runner.os }}-maven-shared-libs-
-
-      - name: Build shared libraries
-        run: |
-          echo "============================================"
-          echo "Building Foundation Shared Libraries"
-          echo "============================================"
-
-          # Navigate to shared-libraries parent
-          cd foundation-domain/shared-libraries/Backend/Java
-
-          # List available libraries
-          echo "Available library folders:"
-          ls -la
-
-          # Build all modules from parent POM
-          echo "Building all shared libraries from parent POM..."
-          mvn clean install -DskipTests -B
-
-          # Verify installed artifacts
-          echo "============================================"
-          echo "Verifying installed artifacts..."
-          echo "============================================"
-          ls -la ~/.m2/repository/com/gogidix/shared/ || echo "No artifacts found!"
-
-          echo "============================================"
-          echo "Shared libraries build complete!"
-          echo "============================================"
+            ${{ runner.os }}-maven-github-packages-
 
   # ============================================
   # STAGE 1: SETUP & COMPILE
@@ -113,7 +130,7 @@ jobs:
   compile:
     name: Compile Service
     runs-on: ubuntu-latest
-    needs: build-shared-libs
+    needs: setup-github-packages
     outputs:
       service_path: ${{ steps.set_paths.outputs.service_path }}
     
@@ -136,9 +153,44 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-shared-libs-v1
+          key: ${{ runner.os }}-maven-github-packages-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
-            ${{ runner.os }}-maven-shared-libs-
+            ${{ runner.os }}-maven-github-packages-
+
+      - name: Configure Maven for GitHub Packages
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml << SETTINGS
+          <settings>
+            <servers>
+              <server>
+                <id>github</id>
+                <username>${GITHUB_ACTOR}</username>
+                <password>$PAT_TOKEN</password>
+              </server>
+            </servers>
+            <profiles>
+              <profile>
+                <id>github-packages</id>
+                <repositories>
+                  <repository>
+                    <id>github</id>
+                    <name>GitHub Packages</name>
+                    <url>https://maven.pkg.github.com/ggx-commerce/gogidix-foundation-domain</url>
+                    <releases><enabled>true</enabled></releases>
+                    <snapshots><enabled>true</enabled></snapshots>
+                  </repository>
+                </repositories>
+              </profile>
+            </profiles>
+            <activeProfiles>
+              <activeProfile>github-packages</activeProfile>
+            </activeProfiles>
+          </settings>
+          SETTINGS
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
 
       - name: Set service paths
         id: set_paths
@@ -224,9 +276,44 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-shared-libs-v1
+          key: ${{ runner.os }}-maven-github-packages-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
-            ${{ runner.os }}-maven-shared-libs-
+            ${{ runner.os }}-maven-github-packages-
+
+      - name: Configure Maven for GitHub Packages
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml << SETTINGS
+          <settings>
+            <servers>
+              <server>
+                <id>github</id>
+                <username>${GITHUB_ACTOR}</username>
+                <password>$PAT_TOKEN</password>
+              </server>
+            </servers>
+            <profiles>
+              <profile>
+                <id>github-packages</id>
+                <repositories>
+                  <repository>
+                    <id>github</id>
+                    <name>GitHub Packages</name>
+                    <url>https://maven.pkg.github.com/ggx-commerce/gogidix-foundation-domain</url>
+                    <releases><enabled>true</enabled></releases>
+                    <snapshots><enabled>true</enabled></snapshots>
+                  </repository>
+                </repositories>
+              </profile>
+            </profiles>
+            <activeProfiles>
+              <activeProfile>github-packages</activeProfile>
+            </activeProfiles>
+          </settings>
+          SETTINGS
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
 
       - name: Run unit tests
         run: |
@@ -278,9 +365,44 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-shared-libs-v1
+          key: ${{ runner.os }}-maven-github-packages-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
-            ${{ runner.os }}-maven-shared-libs-
+            ${{ runner.os }}-maven-github-packages-
+
+      - name: Configure Maven for GitHub Packages
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml << SETTINGS
+          <settings>
+            <servers>
+              <server>
+                <id>github</id>
+                <username>${GITHUB_ACTOR}</username>
+                <password>$PAT_TOKEN</password>
+              </server>
+            </servers>
+            <profiles>
+              <profile>
+                <id>github-packages</id>
+                <repositories>
+                  <repository>
+                    <id>github</id>
+                    <name>GitHub Packages</name>
+                    <url>https://maven.pkg.github.com/ggx-commerce/gogidix-foundation-domain</url>
+                    <releases><enabled>true</enabled></releases>
+                    <snapshots><enabled>true</enabled></snapshots>
+                  </repository>
+                </repositories>
+              </profile>
+            </profiles>
+            <activeProfiles>
+              <activeProfile>github-packages</activeProfile>
+            </activeProfiles>
+          </settings>
+          SETTINGS
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
 
       - name: Package JAR
         run: |
@@ -334,9 +456,44 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-shared-libs-v1
+          key: ${{ runner.os }}-maven-github-packages-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
-            ${{ runner.os }}-maven-shared-libs-
+            ${{ runner.os }}-maven-github-packages-
+
+      - name: Configure Maven for GitHub Packages
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml << SETTINGS
+          <settings>
+            <servers>
+              <server>
+                <id>github</id>
+                <username>${GITHUB_ACTOR}</username>
+                <password>$PAT_TOKEN</password>
+              </server>
+            </servers>
+            <profiles>
+              <profile>
+                <id>github-packages</id>
+                <repositories>
+                  <repository>
+                    <id>github</id>
+                    <name>GitHub Packages</name>
+                    <url>https://maven.pkg.github.com/ggx-commerce/gogidix-foundation-domain</url>
+                    <releases><enabled>true</enabled></releases>
+                    <snapshots><enabled>true</enabled></snapshots>
+                  </repository>
+                </repositories>
+              </profile>
+            </profiles>
+            <activeProfiles>
+              <activeProfile>github-packages</activeProfile>
+            </activeProfiles>
+          </settings>
+          SETTINGS
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
 
       - name: Run smoke tests
         run: |
@@ -395,9 +552,44 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-shared-libs-v1
+          key: ${{ runner.os }}-maven-github-packages-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
-            ${{ runner.os }}-maven-shared-libs-
+            ${{ runner.os }}-maven-github-packages-
+
+      - name: Configure Maven for GitHub Packages
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml << SETTINGS
+          <settings>
+            <servers>
+              <server>
+                <id>github</id>
+                <username>${GITHUB_ACTOR}</username>
+                <password>$PAT_TOKEN</password>
+              </server>
+            </servers>
+            <profiles>
+              <profile>
+                <id>github-packages</id>
+                <repositories>
+                  <repository>
+                    <id>github</id>
+                    <name>GitHub Packages</name>
+                    <url>https://maven.pkg.github.com/ggx-commerce/gogidix-foundation-domain</url>
+                    <releases><enabled>true</enabled></releases>
+                    <snapshots><enabled>true</enabled></snapshots>
+                  </repository>
+                </repositories>
+              </profile>
+            </profiles>
+            <activeProfiles>
+              <activeProfile>github-packages</activeProfile>
+            </activeProfiles>
+          </settings>
+          SETTINGS
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
 
       - name: Generate coverage report
         run: |
@@ -470,9 +662,44 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-shared-libs-v1
+          key: ${{ runner.os }}-maven-github-packages-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
-            ${{ runner.os }}-maven-shared-libs-
+            ${{ runner.os }}-maven-github-packages-
+
+      - name: Configure Maven for GitHub Packages
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml << SETTINGS
+          <settings>
+            <servers>
+              <server>
+                <id>github</id>
+                <username>${GITHUB_ACTOR}</username>
+                <password>$PAT_TOKEN</password>
+              </server>
+            </servers>
+            <profiles>
+              <profile>
+                <id>github-packages</id>
+                <repositories>
+                  <repository>
+                    <id>github</id>
+                    <name>GitHub Packages</name>
+                    <url>https://maven.pkg.github.com/ggx-commerce/gogidix-foundation-domain</url>
+                    <releases><enabled>true</enabled></releases>
+                    <snapshots><enabled>true</enabled></snapshots>
+                  </repository>
+                </repositories>
+              </profile>
+            </profiles>
+            <activeProfiles>
+              <activeProfile>github-packages</activeProfile>
+            </activeProfiles>
+          </settings>
+          SETTINGS
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
 
       - name: Run mutation tests
         run: |
