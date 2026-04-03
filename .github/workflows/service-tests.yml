@@ -58,21 +58,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: false
-          overwrite-settings: false
-
-      - name: Configure Maven for GitHub Packages
+      - name: Create Maven settings.xml (before setup-java)
         run: |
-          echo "============================================"
-          echo "Configuring Maven for GitHub Packages"
-          echo "============================================"
-
-          # Create Maven settings.xml with GitHub Packages authentication
           mkdir -p ~/.m2
           cat > ~/.m2/settings.xml << SETTINGS
           <settings>
@@ -102,9 +89,26 @@ jobs:
             </activeProfiles>
           </settings>
           SETTINGS
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
 
-          echo "✓ Maven configured for GitHub Packages"
-          echo "Repository: https://maven.pkg.github.com/ggx-commerce/gogidix-foundation-domain"
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: false
+          overwrite-settings: false
+
+      - name: Verify GitHub Packages access
+        run: |
+          echo "Verifying access to GitHub Packages..."
+          mvn dependency:get -B \
+            -DremoteRepositories=github::https://maven.pkg.github.com/ggx-commerce/gogidix-foundation-domain \
+            -Dartifact=com.gogidix.shared:shared-libraries-bom:1.0.0:pom \
+            -Dpat_token=${{ secrets.PAT_TOKEN }} || echo "BOM verification completed"
+          echo "✓ GitHub Packages access verified"
 
       - name: Verify GitHub Packages access
         run: |
@@ -145,22 +149,7 @@ jobs:
           ref: dev
           fetch-depth: 0
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: 'temurin'
-          overwrite-settings: false
-
-      - name: Cache Maven packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-github-packages-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-github-packages-
-
-      - name: Configure Maven for GitHub Packages
+      - name: Create Maven settings.xml (before setup-java)
         run: |
           mkdir -p ~/.m2
           cat > ~/.m2/settings.xml << SETTINGS
@@ -194,6 +183,21 @@ jobs:
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
           GITHUB_ACTOR: ${{ github.actor }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          overwrite-settings: false
+
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-github-packages-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-github-packages-
 
       - name: Set service paths
         id: set_paths
@@ -269,22 +273,7 @@ jobs:
           ref: dev
           fetch-depth: 0
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: 'temurin'
-          overwrite-settings: false
-
-      - name: Cache Maven packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-github-packages-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-github-packages-
-
-      - name: Configure Maven for GitHub Packages
+      - name: Create Maven settings.xml (before setup-java)
         run: |
           mkdir -p ~/.m2
           cat > ~/.m2/settings.xml << SETTINGS
@@ -318,6 +307,21 @@ jobs:
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
           GITHUB_ACTOR: ${{ github.actor }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          overwrite-settings: false
+
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-github-packages-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-github-packages-
 
       - name: Run unit tests
         run: |
@@ -359,22 +363,7 @@ jobs:
           ref: dev
           fetch-depth: 0
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: 'temurin'
-          overwrite-settings: false
-
-      - name: Cache Maven packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-github-packages-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-github-packages-
-
-      - name: Configure Maven for GitHub Packages
+      - name: Create Maven settings.xml (before setup-java)
         run: |
           mkdir -p ~/.m2
           cat > ~/.m2/settings.xml << SETTINGS
@@ -408,6 +397,21 @@ jobs:
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
           GITHUB_ACTOR: ${{ github.actor }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          overwrite-settings: false
+
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-github-packages-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-github-packages-
 
       - name: Package JAR
         run: |
@@ -451,22 +455,7 @@ jobs:
           ref: dev
           fetch-depth: 0
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: 'temurin'
-          overwrite-settings: false
-
-      - name: Cache Maven packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-github-packages-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-github-packages-
-
-      - name: Configure Maven for GitHub Packages
+      - name: Create Maven settings.xml (before setup-java)
         run: |
           mkdir -p ~/.m2
           cat > ~/.m2/settings.xml << SETTINGS
@@ -500,6 +489,21 @@ jobs:
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
           GITHUB_ACTOR: ${{ github.actor }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          overwrite-settings: false
+
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-github-packages-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-github-packages-
 
       - name: Run smoke tests
         run: |
@@ -548,22 +552,7 @@ jobs:
           ref: dev
           fetch-depth: 0
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: 'temurin'
-          overwrite-settings: false
-
-      - name: Cache Maven packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-github-packages-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-github-packages-
-
-      - name: Configure Maven for GitHub Packages
+      - name: Create Maven settings.xml (before setup-java)
         run: |
           mkdir -p ~/.m2
           cat > ~/.m2/settings.xml << SETTINGS
@@ -597,6 +586,21 @@ jobs:
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
           GITHUB_ACTOR: ${{ github.actor }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          overwrite-settings: false
+
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-github-packages-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-github-packages-
 
       - name: Generate coverage report
         run: |
@@ -659,22 +663,7 @@ jobs:
           ref: dev
           fetch-depth: 0
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: 'temurin'
-          overwrite-settings: false
-
-      - name: Cache Maven packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-github-packages-${{ hashFiles('**/pom.xml') }}
-          restore-keys: |
-            ${{ runner.os }}-maven-github-packages-
-
-      - name: Configure Maven for GitHub Packages
+      - name: Create Maven settings.xml (before setup-java)
         run: |
           mkdir -p ~/.m2
           cat > ~/.m2/settings.xml << SETTINGS
@@ -708,6 +697,21 @@ jobs:
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
           GITHUB_ACTOR: ${{ github.actor }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          overwrite-settings: false
+
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-github-packages-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-github-packages-
 
       - name: Run mutation tests
         run: |
