@@ -1,15 +1,7 @@
 # Gogidix Testing Infrastructure - Service Testing Workflow
-# Runs Financial-Grade tests for services pulled from shared-business-logics
+# Runs Financial-Grade tests for services from shared-business-logics
 #
-# Pipeline Stages:
-# 0. Setup GitHub Packages (download shared libraries from foundation-domain)
-# 1. Checkout shared-business-logics
-# 2. Compile
-# 3. Build
-# 4. Test (Unit + Integration)
-# 5. Build JAR
-# 6. Smoke Test
-# 7. Coverage Report
+# Shared libraries are consumed from GitHub Packages (foundation-domain)
 
 name: Service Tests
 
@@ -58,16 +50,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Create Maven settings.xml (before setup-java)
+      - name: Install JDK 17 manually (bypasses setup-java)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openjdk-17-jdk
+          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
+          echo "/usr/lib/jvm/java-17-openjdk-amd64/bin" >> $GITHUB_PATH
+          java -version
+
+      - name: Create Maven settings.xml
         run: |
           mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml << SETTINGS
+          cat > ~/.m2/settings.xml << 'EOF'
           <settings>
             <servers>
               <server>
                 <id>github</id>
-                <username>${GITHUB_ACTOR}</username>
-                <password>$PAT_TOKEN</password>
+                <username>${env.GITHUB_ACTOR}</username>
+                <password>${env.PAT_TOKEN}</password>
               </server>
             </servers>
             <profiles>
@@ -88,38 +88,19 @@ jobs:
               <activeProfile>github-packages</activeProfile>
             </activeProfiles>
           </settings>
-          SETTINGS
+          EOF
+          echo "✓ Maven configured for GitHub Packages"
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
           GITHUB_ACTOR: ${{ github.actor }}
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          server-id: ''
-
       - name: Verify GitHub Packages access
         run: |
           echo "Verifying access to GitHub Packages..."
           mvn dependency:get -B \
             -DremoteRepositories=github::https://maven.pkg.github.com/ggx-commerce/gogidix-foundation-domain \
-            -Dartifact=com.gogidix.shared:shared-libraries-bom:1.0.0:pom \
-            -Dpat_token=${{ secrets.PAT_TOKEN }} || echo "BOM verification completed"
-          echo "✓ GitHub Packages access verified"
-
-      - name: Verify GitHub Packages access
-        run: |
-          echo "Verifying access to GitHub Packages..."
-
-          # Try to fetch the BOM to verify access
-          mvn dependency:get -B \
-            -DremoteRepositories=github::https://maven.pkg.github.com/ggx-commerce/gogidix-foundation-domain \
-            -Dartifact=com.gogidix.shared:shared-libraries-bom:1.0.0:pom \
-            -Dpat_token=${{ secrets.PAT_TOKEN }} || echo "BOM verification completed"
-
-          echo "✓ GitHub Packages access verified"
+            -Dartifact=com.gogidix.shared:shared-libraries-bom:1.0.0:pom || echo "Note: BOM verification"
+          echo "✓ GitHub Packages configuration complete"
 
       - name: Cache Maven packages
         uses: actions/cache@v4
@@ -130,7 +111,7 @@ jobs:
             ${{ runner.os }}-maven-github-packages-
 
   # ============================================
-  # STAGE 1: SETUP & COMPILE
+  # STAGE 1: COMPILE
   # ============================================
   compile:
     name: Compile Service
@@ -138,7 +119,7 @@ jobs:
     needs: setup-github-packages
     outputs:
       service_path: ${{ steps.set_paths.outputs.service_path }}
-    
+
     steps:
       - name: Checkout shared-business-logics
         uses: actions/checkout@v4
@@ -148,16 +129,24 @@ jobs:
           ref: dev
           fetch-depth: 0
 
-      - name: Create Maven settings.xml (before setup-java)
+      - name: Install JDK 17 manually
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openjdk-17-jdk
+          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
+          echo "/usr/lib/jvm/java-17-openjdk-amd64/bin" >> $GITHUB_PATH
+          java -version
+
+      - name: Create Maven settings.xml
         run: |
           mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml << SETTINGS
+          cat > ~/.m2/settings.xml << 'EOF'
           <settings>
             <servers>
               <server>
                 <id>github</id>
-                <username>${GITHUB_ACTOR}</username>
-                <password>$PAT_TOKEN</password>
+                <username>${env.GITHUB_ACTOR}</username>
+                <password>${env.PAT_TOKEN}</password>
               </server>
             </servers>
             <profiles>
@@ -178,17 +167,10 @@ jobs:
               <activeProfile>github-packages</activeProfile>
             </activeProfiles>
           </settings>
-          SETTINGS
+          EOF
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
           GITHUB_ACTOR: ${{ github.actor }}
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: 'temurin'
-          server-id: ''
 
       - name: Cache Maven packages
         uses: actions/cache@v4
@@ -210,15 +192,13 @@ jobs:
       - name: Compile service
         run: |
           SERVICE="${{ github.event.inputs.service }}"
-          SERVICE_PATH="${{ env.SERVICE_BASE_PATH }}/${SERVICE}"
+          SERVICE_PATH="${{ env.SERVICE_BASE_PATH }}/${SERVICE}}"
           echo "============================================"
           echo "Compiling: ${SERVICE_PATH}"
           echo "============================================"
 
-          # List directory structure
           ls -la ${SERVICE_PATH} || echo "Directory not found!"
 
-          # Check if pom.xml exists
           if [ -f "${SERVICE_PATH}/pom.xml" ]; then
             echo "pom.xml found"
           else
@@ -226,12 +206,11 @@ jobs:
             exit 1
           fi
 
-          # Build directly in the service directory
           cd ${SERVICE_PATH}
           echo "Current directory: $(pwd)"
-          mvn compile -B -X 2>&1 | tee compile.log || {
+          mvn compile -B 2>&1 | tee compile.log || {
             echo "============================================"
-            echo "COMPILATION FAILED - Full Error Output:"
+            echo "COMPILATION FAILED"
             echo "============================================"
             cat compile.log
             exit 1
@@ -251,7 +230,7 @@ jobs:
     name: Unit Tests
     runs-on: ubuntu-latest
     needs: compile
-    
+
     services:
       mongodb:
         image: mongo:6.0
@@ -272,16 +251,23 @@ jobs:
           ref: dev
           fetch-depth: 0
 
-      - name: Create Maven settings.xml (before setup-java)
+      - name: Install JDK 17 manually
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openjdk-17-jdk
+          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
+          echo "/usr/lib/jvm/java-17-openjdk-amd64/bin" >> $GITHUB_PATH
+
+      - name: Create Maven settings.xml
         run: |
           mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml << SETTINGS
+          cat > ~/.m2/settings.xml << 'EOF'
           <settings>
             <servers>
               <server>
                 <id>github</id>
-                <username>${GITHUB_ACTOR}</username>
-                <password>$PAT_TOKEN</password>
+                <username>${env.GITHUB_ACTOR}</username>
+                <password>${env.PAT_TOKEN}</password>
               </server>
             </servers>
             <profiles>
@@ -292,8 +278,6 @@ jobs:
                     <id>github</id>
                     <name>GitHub Packages</name>
                     <url>https://maven.pkg.github.com/ggx-commerce/gogidix-foundation-domain</url>
-                    <releases><enabled>true</enabled></releases>
-                    <snapshots><enabled>true</enabled></snapshots>
                   </repository>
                 </repositories>
               </profile>
@@ -302,17 +286,10 @@ jobs:
               <activeProfile>github-packages</activeProfile>
             </activeProfiles>
           </settings>
-          SETTINGS
+          EOF
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
           GITHUB_ACTOR: ${{ github.actor }}
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: 'temurin'
-          server-id: ''
 
       - name: Cache Maven packages
         uses: actions/cache@v4
@@ -327,7 +304,6 @@ jobs:
           SERVICE="${{ github.event.inputs.service }}"
           SERVICE_PATH="${{ env.SERVICE_BASE_PATH }}/${SERVICE}"
           echo "Running unit tests for: ${SERVICE_PATH}"
-
           cd ${SERVICE_PATH}
           mvn test -B \
             -Dspring.data.mongodb.uri=mongodb://localhost:27017/fraud_detection_test \
@@ -352,7 +328,7 @@ jobs:
     name: Build JAR
     runs-on: ubuntu-latest
     needs: unit-tests
-    
+
     steps:
       - name: Checkout shared-business-logics
         uses: actions/checkout@v4
@@ -362,16 +338,23 @@ jobs:
           ref: dev
           fetch-depth: 0
 
-      - name: Create Maven settings.xml (before setup-java)
+      - name: Install JDK 17 manually
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openjdk-17-jdk
+          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
+          echo "/usr/lib/jvm/java-17-openjdk-amd64/bin" >> $GITHUB_PATH
+
+      - name: Create Maven settings.xml
         run: |
           mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml << SETTINGS
+          cat > ~/.m2/settings.xml << 'EOF'
           <settings>
             <servers>
               <server>
                 <id>github</id>
-                <username>${GITHUB_ACTOR}</username>
-                <password>$PAT_TOKEN</password>
+                <username>${env.GITHUB_ACTOR}</username>
+                <password>${env.PAT_TOKEN}</password>
               </server>
             </servers>
             <profiles>
@@ -382,8 +365,6 @@ jobs:
                     <id>github</id>
                     <name>GitHub Packages</name>
                     <url>https://maven.pkg.github.com/ggx-commerce/gogidix-foundation-domain</url>
-                    <releases><enabled>true</enabled></releases>
-                    <snapshots><enabled>true</enabled></snapshots>
                   </repository>
                 </repositories>
               </profile>
@@ -392,17 +373,10 @@ jobs:
               <activeProfile>github-packages</activeProfile>
             </activeProfiles>
           </settings>
-          SETTINGS
+          EOF
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
           GITHUB_ACTOR: ${{ github.actor }}
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: 'temurin'
-          server-id: ''
 
       - name: Cache Maven packages
         uses: actions/cache@v4
@@ -416,7 +390,6 @@ jobs:
         run: |
           cd ${{ env.SERVICE_BASE_PATH }}/${{ github.event.inputs.service }}
           echo "Building JAR for: ${{ github.event.inputs.service }}"
-          
           mvn package -DskipTests -B
 
       - name: Upload JAR artifact
@@ -433,7 +406,7 @@ jobs:
     name: Smoke Tests
     runs-on: ubuntu-latest
     needs: build-jar
-    
+
     services:
       mongodb:
         image: mongo:6.0
@@ -454,16 +427,23 @@ jobs:
           ref: dev
           fetch-depth: 0
 
-      - name: Create Maven settings.xml (before setup-java)
+      - name: Install JDK 17 manually
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openjdk-17-jdk
+          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
+          echo "/usr/lib/jvm/java-17-openjdk-amd64/bin" >> $GITHUB_PATH
+
+      - name: Create Maven settings.xml
         run: |
           mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml << SETTINGS
+          cat > ~/.m2/settings.xml << 'EOF'
           <settings>
             <servers>
               <server>
                 <id>github</id>
-                <username>${GITHUB_ACTOR}</username>
-                <password>$PAT_TOKEN</password>
+                <username>${env.GITHUB_ACTOR}</username>
+                <password>${env.PAT_TOKEN}</password>
               </server>
             </servers>
             <profiles>
@@ -474,8 +454,6 @@ jobs:
                     <id>github</id>
                     <name>GitHub Packages</name>
                     <url>https://maven.pkg.github.com/ggx-commerce/gogidix-foundation-domain</url>
-                    <releases><enabled>true</enabled></releases>
-                    <snapshots><enabled>true</enabled></snapshots>
                   </repository>
                 </repositories>
               </profile>
@@ -484,17 +462,10 @@ jobs:
               <activeProfile>github-packages</activeProfile>
             </activeProfiles>
           </settings>
-          SETTINGS
+          EOF
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
           GITHUB_ACTOR: ${{ github.actor }}
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: 'temurin'
-          server-id: ''
 
       - name: Cache Maven packages
         uses: actions/cache@v4
@@ -508,7 +479,6 @@ jobs:
         run: |
           cd ${{ env.SERVICE_BASE_PATH }}/${{ github.event.inputs.service }}
           echo "Running smoke tests for: ${{ github.event.inputs.service }}"
-          
           mvn test -B \
             -Dtest=SmokeTest \
             -Dspring.data.mongodb.uri=mongodb://localhost:27017/fraud_detection_test
@@ -530,7 +500,7 @@ jobs:
     name: Coverage Report
     runs-on: ubuntu-latest
     needs: [unit-tests, smoke-tests]
-    
+
     services:
       mongodb:
         image: mongo:6.0
@@ -551,16 +521,23 @@ jobs:
           ref: dev
           fetch-depth: 0
 
-      - name: Create Maven settings.xml (before setup-java)
+      - name: Install JDK 17 manually
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openjdk-17-jdk
+          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
+          echo "/usr/lib/jvm/java-17-openjdk-amd64/bin" >> $GITHUB_PATH
+
+      - name: Create Maven settings.xml
         run: |
           mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml << SETTINGS
+          cat > ~/.m2/settings.xml << 'EOF'
           <settings>
             <servers>
               <server>
                 <id>github</id>
-                <username>${GITHUB_ACTOR}</username>
-                <password>$PAT_TOKEN</password>
+                <username>${env.GITHUB_ACTOR}</username>
+                <password>${env.PAT_TOKEN}</password>
               </server>
             </servers>
             <profiles>
@@ -571,8 +548,6 @@ jobs:
                     <id>github</id>
                     <name>GitHub Packages</name>
                     <url>https://maven.pkg.github.com/ggx-commerce/gogidix-foundation-domain</url>
-                    <releases><enabled>true</enabled></releases>
-                    <snapshots><enabled>true</enabled></snapshots>
                   </repository>
                 </repositories>
               </profile>
@@ -581,17 +556,10 @@ jobs:
               <activeProfile>github-packages</activeProfile>
             </activeProfiles>
           </settings>
-          SETTINGS
+          EOF
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
           GITHUB_ACTOR: ${{ github.actor }}
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: 'temurin'
-          server-id: ''
 
       - name: Cache Maven packages
         uses: actions/cache@v4
@@ -605,12 +573,8 @@ jobs:
         run: |
           cd ${{ env.SERVICE_BASE_PATH }}/${{ github.event.inputs.service }}
           echo "Generating coverage for: ${{ github.event.inputs.service }}"
-          
-          # Run tests with JaCoCo
           mvn verify -B \
             -Dspring.data.mongodb.uri=mongodb://localhost:27017/fraud_detection_test
-          
-          # Generate JaCoCo report
           mvn jacoco:report -B
 
       - name: Check coverage thresholds
@@ -620,8 +584,6 @@ jobs:
           echo "- Line Coverage: >= ${{ env.COVERAGE_THRESHOLD_LINE }}%"
           echo "- Branch Coverage: >= ${{ env.COVERAGE_THRESHOLD_BRANCH }}%"
           echo "- Mutation Score: >= ${{ env.COVERAGE_THRESHOLD_MUTATION }}%"
-          
-          # Run JaCoCo check
           mvn jacoco:check -B || true
 
       - name: Upload coverage report
@@ -641,7 +603,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: coverage
     if: github.event.inputs.skip_mutation != 'true'
-    
+
     services:
       mongodb:
         image: mongo:6.0
@@ -662,16 +624,23 @@ jobs:
           ref: dev
           fetch-depth: 0
 
-      - name: Create Maven settings.xml (before setup-java)
+      - name: Install JDK 17 manually
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openjdk-17-jdk
+          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
+          echo "/usr/lib/jvm/java-17-openjdk-amd64/bin" >> $GITHUB_PATH
+
+      - name: Create Maven settings.xml
         run: |
           mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml << SETTINGS
+          cat > ~/.m2/settings.xml << 'EOF'
           <settings>
             <servers>
               <server>
                 <id>github</id>
-                <username>${GITHUB_ACTOR}</username>
-                <password>$PAT_TOKEN</password>
+                <username>${env.GITHUB_ACTOR}</username>
+                <password>${env.PAT_TOKEN}</password>
               </server>
             </servers>
             <profiles>
@@ -682,8 +651,6 @@ jobs:
                     <id>github</id>
                     <name>GitHub Packages</name>
                     <url>https://maven.pkg.github.com/ggx-commerce/gogidix-foundation-domain</url>
-                    <releases><enabled>true</enabled></releases>
-                    <snapshots><enabled>true</enabled></snapshots>
                   </repository>
                 </repositories>
               </profile>
@@ -692,17 +659,10 @@ jobs:
               <activeProfile>github-packages</activeProfile>
             </activeProfiles>
           </settings>
-          SETTINGS
+          EOF
         env:
           PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
           GITHUB_ACTOR: ${{ github.actor }}
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: ${{ env.JAVA_VERSION }}
-          distribution: 'temurin'
-          server-id: ''
 
       - name: Cache Maven packages
         uses: actions/cache@v4
@@ -716,7 +676,6 @@ jobs:
         run: |
           cd ${{ env.SERVICE_BASE_PATH }}/${{ github.event.inputs.service }}
           echo "Running mutation tests for: ${{ github.event.inputs.service }}"
-          
           mvn verify -Pci -B
         env:
           SPRING_DATA_MONGODB_URI: mongodb://localhost:27017/fraud_detection_test
@@ -746,15 +705,14 @@ jobs:
       - name: Generate summary report
         run: |
           mkdir -p reports
-          
           cat > reports/test-summary.md << EOF
           # Test Report: ${{ github.event.inputs.service }}
-          
+
           **Run Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
           **Workflow Run:** ${{ github.run_number }}
-          
+
           ## Pipeline Status
-          
+
           | Stage | Status |
           |-------|--------|
           | Compile | ${{ needs.compile.result }} |
@@ -762,15 +720,15 @@ jobs:
           | Build JAR | ${{ needs.build-jar.result }} |
           | Smoke Tests | ${{ needs.smoke-tests.result }} |
           | Coverage | ${{ needs.coverage.result }} |
-          
+
           ## Financial-Grade Thresholds
-          
+
           - **Line Coverage:** >= ${{ env.COVERAGE_THRESHOLD_LINE }}%
           - **Branch Coverage:** >= ${{ env.COVERAGE_THRESHOLD_BRANCH }}%
           - **Mutation Score:** >= ${{ env.COVERAGE_THRESHOLD_MUTATION }}%
-          
+
           ## Artifacts
-          
+
           - Unit test results
           - Coverage report
           - JAR artifact
