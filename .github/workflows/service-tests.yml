@@ -261,13 +261,13 @@ jobs:
       - name: Create Maven settings.xml
         run: |
           mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml << 'EOF'
+          cat > ~/.m2/settings.xml << EOF
           <settings>
             <servers>
               <server>
                 <id>github</id>
-                <username>${env.GITHUB_ACTOR}</username>
-                <password>${env.PAT_TOKEN}</password>
+                <username>$GITHUB_ACTOR</username>
+                <password>$PAT_TOKEN</password>
               </server>
             </servers>
             <profiles>
@@ -348,13 +348,13 @@ jobs:
       - name: Create Maven settings.xml
         run: |
           mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml << 'EOF'
+          cat > ~/.m2/settings.xml << EOF
           <settings>
             <servers>
               <server>
                 <id>github</id>
-                <username>${env.GITHUB_ACTOR}</username>
-                <password>${env.PAT_TOKEN}</password>
+                <username>$GITHUB_ACTOR</username>
+                <password>$PAT_TOKEN</password>
               </server>
             </servers>
             <profiles>
@@ -437,13 +437,13 @@ jobs:
       - name: Create Maven settings.xml
         run: |
           mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml << 'EOF'
+          cat > ~/.m2/settings.xml << EOF
           <settings>
             <servers>
               <server>
                 <id>github</id>
-                <username>${env.GITHUB_ACTOR}</username>
-                <password>${env.PAT_TOKEN}</password>
+                <username>$GITHUB_ACTOR</username>
+                <password>$PAT_TOKEN</password>
               </server>
             </servers>
             <profiles>
@@ -531,13 +531,13 @@ jobs:
       - name: Create Maven settings.xml
         run: |
           mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml << 'EOF'
+          cat > ~/.m2/settings.xml << EOF
           <settings>
             <servers>
               <server>
                 <id>github</id>
-                <username>${env.GITHUB_ACTOR}</username>
-                <password>${env.PAT_TOKEN}</password>
+                <username>$GITHUB_ACTOR</username>
+                <password>$PAT_TOKEN</password>
               </server>
             </servers>
             <profiles>
@@ -634,13 +634,13 @@ jobs:
       - name: Create Maven settings.xml
         run: |
           mkdir -p ~/.m2
-          cat > ~/.m2/settings.xml << 'EOF'
+          cat > ~/.m2/settings.xml << EOF
           <settings>
             <servers>
               <server>
                 <id>github</id>
-                <username>${env.GITHUB_ACTOR}</username>
-                <password>${env.PAT_TOKEN}</password>
+                <username>$GITHUB_ACTOR</username>
+                <password>$PAT_TOKEN</password>
               </server>
             </servers>
             <profiles>
