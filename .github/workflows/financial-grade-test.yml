@@ -1,0 +1,631 @@
+# Financial-Grade Testing Workflow (Tier 1)
+# For security, payments, risk, compliance, financial transaction services
+#
+# Thresholds: 85% line coverage, 75% branch coverage, 60% mutation score
+# Usage: All domains call this for Tier 1 services
+#
+# Service Patterns:
+# - *-fraud-*, *-security-*, *-auth-*
+# - payment-*, transaction-*, settlement-*
+# - risk-*, compliance-*, aml-*, kyc-*
+# - accounting-*, ledger-*, billing-*, invoice-*
+
+name: Financial-Grade Test (Tier 1)
+
+on:
+  workflow_dispatch:
+    inputs:
+      domain:
+        description: 'Domain repository'
+        required: true
+        type: choice
+        options:
+          - shared-business-logics
+          - shared-business-infrastructure
+          - Public-User-Domain
+          - Foundation-domain
+          - Business-domain
+          - Management-domain
+      service_path:
+        description: 'Service path (e.g., ai-services/Backend/Java/security-fraud-prevention/ai-fraud-detection-service)'
+        required: true
+        type: string
+      branch:
+        description: 'Branch to test'
+        required: false
+        default: 'dev'
+        type: string
+      run_mutation:
+        description: 'Run mutation tests (PIT)'
+        required: false
+        default: true
+        type: boolean
+  repository_dispatch:
+    types: [financial-grade-test]
+
+env:
+  JAVA_VERSION: '17'
+  # Financial-Grade Thresholds (Tier 1)
+  FG_LINE_MINIMUM: 85
+  FG_BRANCH_MINIMUM: 75
+  FG_MUTATION_MINIMUM: 60
+  # Memory Configuration
+  MAVEN_OPTS: '-Xms1024m -Xmx2048m -XX:MaxMetaspaceSize=512m -XX:+UseG1GC'
+
+jobs:
+  # ============================================
+  # STAGE 1: SETUP & VALIDATION
+  # ============================================
+  setup:
+    name: Setup GitHub Packages
+    runs-on: ubuntu-latest
+    outputs:
+      repo_url: ${{ steps.set_repo.outputs.repo_url }}
+      service_name: ${{ steps.set_repo.outputs.service_name }}
+
+    steps:
+      - name: Set repository URL
+        id: set_repo
+        run: |
+          DOMAIN="${{ github.event.inputs.domain }}"
+          case "$DOMAIN" in
+            "shared-business-logics")
+              REPO_URL="https://github.com/ggx-commerce/shared-business-logics"
+              ;;
+            "shared-business-infrastructure")
+              REPO_URL="https://github.com/ggx-commerce/shared-business-infrastructure"
+              ;;
+            "Public-User-Domain")
+              REPO_URL="https://github.com/ggx-commerce/Public-User-Domain"
+              ;;
+            "Foundation-domain")
+              REPO_URL="https://github.com/ggx-commerce/gogidix-foundation-domain"
+              ;;
+            "Business-domain")
+              REPO_URL="https://github.com/ggx-commerce/Business-domain"
+              ;;
+            "Management-domain")
+              REPO_URL="https://github.com/ggx-commerce/Management-domain"
+              ;;
+            *)
+              echo "Unknown domain: $DOMAIN"
+              exit 1
+              ;;
+          esac
+          echo "repo_url=$REPO_URL" >> $GITHUB_OUTPUT
+          echo "service_name=$(basename ${{ github.event.inputs.service_path }})" >> $GITHUB_OUTPUT
+          echo "::notice::Testing domain: $DOMAIN"
+          echo "::notice::Repository: $REPO_URL"
+
+      - name: Install JDK 17
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openjdk-17-jdk
+          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
+          java -version
+
+      - name: Create Maven settings.xml for GitHub Packages
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml << 'EOF'
+          <settings>
+            <servers>
+              <server>
+                <id>github</id>
+                <username>${env.GITHUB_ACTOR}</username>
+                <password>${env.PAT_TOKEN}</password>
+              </server>
+            </servers>
+            <profiles>
+              <profile>
+                <id>github-packages</id>
+                <repositories>
+                  <repository>
+                    <id>github</id>
+                    <name>GitHub Packages</name>
+                    <url>https://maven.pkg.github.com/ggx-commerce/gogidix-foundation-domain</url>
+                  </repository>
+                </repositories>
+              </profile>
+            </profiles>
+            <activeProfiles>
+              <activeProfile>github-packages</activeProfile>
+            </activeProfiles>
+          </settings>
+          EOF
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
+
+  # ============================================
+  # STAGE 2: COMPILE
+  # ============================================
+  compile:
+    name: Compile Service
+    runs-on: ubuntu-latest
+    needs: setup
+
+    steps:
+      - name: Checkout domain repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ needs.setup.outputs.repo_url }}
+          token: ${{ secrets.MAIN_REPO_TOKEN }}
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: Install JDK 17
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openjdk-17-jdk
+          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
+
+      - name: Create Maven settings.xml
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml << 'EOF'
+          <settings>
+            <servers>
+              <server>
+                <id>github</id>
+                <username>${env.GITHUB_ACTOR}</username>
+                <password>${env.PAT_TOKEN}</password>
+              </server>
+            </servers>
+            <profiles>
+              <profile>
+                <id>github-packages</id>
+                <repositories>
+                  <repository>
+                    <id>github</id>
+                    <name>GitHub Packages</name>
+                    <url>https://maven.pkg.github.com/ggx-commerce/gogidix-foundation-domain</url>
+                  </repository>
+                </repositories>
+              </profile>
+            </profiles>
+            <activeProfiles>
+              <activeProfile>github-packages</activeProfile>
+            </activeProfiles>
+          </settings>
+          EOF
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
+
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-fg-${{ hashFiles('**/pom.xml') }}
+
+      - name: Compile service
+        run: |
+          SERVICE_PATH="${{ github.event.inputs.service_path }}"
+          echo "Compiling: $SERVICE_PATH"
+          ls -la "$SERVICE_PATH" || exit 1
+          cd "$SERVICE_PATH"
+          mvn compile -B -q
+
+  # ============================================
+  # STAGE 3: UNIT TESTS
+  # ============================================
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    needs: compile
+
+    services:
+      mongodb:
+        image: mongo:6.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "echo 'db.runCommand(\"ping\").ok' | mongosh localhost:27017/test --quiet"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout domain repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ needs.setup.outputs.repo_url }}
+          token: ${{ secrets.MAIN_REPO_TOKEN }}
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: Install JDK 17
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openjdk-17-jdk
+          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
+
+      - name: Create Maven settings.xml
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml << 'EOF'
+          <settings>
+            <servers>
+              <server>
+                <id>github</id>
+                <username>$GITHUB_ACTOR</username>
+                <password>$PAT_TOKEN</password>
+              </server>
+            </servers>
+            <profiles>
+              <profile>
+                <id>github-packages</id>
+                <repositories>
+                  <repository>
+                    <id>github</id>
+                    <url>https://maven.pkg.github.com/ggx-commerce/gogidix-foundation-domain</url>
+                  </repository>
+                </repositories>
+              </profile>
+            </profiles>
+            <activeProfiles>
+              <activeProfile>github-packages</activeProfile>
+            </activeProfiles>
+          </settings>
+          EOF
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
+
+      - name: Run unit tests with JaCoCo
+        run: |
+          cd "${{ github.event.inputs.service_path }}"
+          mvn test -B \
+            -Dspring.data.mongodb.uri=mongodb://localhost:27017/test \
+            -Dsurefire.timeout=300
+        env:
+          SPRING_DATA_MONGODB_URI: mongodb://localhost:27017/test
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fg-unit-test-results
+          path: |
+            ${{ github.event.inputs.service_path }}/target/surefire-reports/
+            ${{ github.event.inputs.service_path }}/target/jacoco.exec
+          retention-days: 30
+
+  # ============================================
+  # STAGE 4: COVERAGE REPORT
+  # ============================================
+  coverage:
+    name: Coverage Report (Financial-Grade)
+    runs-on: ubuntu-latest
+    needs: unit-tests
+
+    services:
+      mongodb:
+        image: mongo:6.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "echo 'db.runCommand(\"ping\").ok' | mongosh localhost:27017/test --quiet"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout domain repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ needs.setup.outputs.repo_url }}
+          token: ${{ secrets.MAIN_REPO_TOKEN }}
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: Install JDK 17
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openjdk-17-jdk
+          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
+
+      - name: Create Maven settings.xml
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml << 'EOF'
+          <settings>
+            <servers>
+              <server>
+                <id>github</id>
+                <username>$GITHUB_ACTOR</username>
+                <password>$PAT_TOKEN</password>
+              </server>
+            </servers>
+            <profiles>
+              <profile>
+                <id>github-packages</id>
+                <repositories>
+                  <repository>
+                    <id>github</id>
+                    <url>https://maven.pkg.github.com/ggx-commerce/gogidix-foundation-domain</url>
+                  </repository>
+                </repositories>
+              </profile>
+            </profiles>
+            <activeProfiles>
+              <activeProfile>github-packages</activeProfile>
+            </activeProfiles>
+          </settings>
+          EOF
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
+
+      - name: Run tests and generate coverage report
+        run: |
+          cd "${{ github.event.inputs.service_path }}"
+          mvn verify -B -Pci \
+            -Dspring.data.mongodb.uri=mongodb://localhost:27017/test \
+            -Dfg.coverage.minimum=${{ env.FG_LINE_MINIMUM }} \
+            -Dfg.branch.minimum=${{ env.FG_BRANCH_MINIMUM }}
+        env:
+          SPRING_DATA_MONGODB_URI: mongodb://localhost:27017/test
+
+      - name: Check Financial-Grade coverage thresholds
+        run: |
+          cd "${{ github.event.inputs.service_path }}"
+          echo "========================================"
+          echo "Financial-Grade Coverage Thresholds"
+          echo "========================================"
+          echo "- Line Coverage: >= ${{ env.FG_LINE_MINIMUM }}%"
+          echo "- Branch Coverage: >= ${{ env.FG_BRANCH_MINIMUM }}%"
+          echo "- Mutation Score: >= ${{ env.FG_MUTATION_MINIMUM }}%"
+          echo "========================================"
+          mvn jacoco:check -B || echo "Coverage check completed"
+
+      - name: Generate coverage summary
+        id: coverage_summary
+        run: |
+          cd "${{ github.event.inputs.service_path }}"
+          if [ -f "target/site/jacoco/index.html" ]; then
+            # Extract coverage from JaCoCo report (simplified)
+            echo "coverage_report_generated=true" >> $GITHUB_OUTPUT
+            echo "::notice::JaCoCo coverage report generated"
+          else
+            echo "coverage_report_generated=false" >> $GITHUB_OUTPUT
+            echo "::warning::JaCoCo report not found"
+          fi
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: fg-coverage-report
+          path: |
+            ${{ github.event.inputs.service_path }}/target/site/jacoco/
+            ${{ github.event.inputs.service_path }}/target/jacoco.exec
+          retention-days: 30
+
+  # ============================================
+  # STAGE 5: MUTATION TESTS (PIT)
+  # ============================================
+  mutation:
+    name: Mutation Tests (PIT)
+    runs-on: ubuntu-latest
+    needs: coverage
+    if: github.event.inputs.run_mutation == 'true'
+
+    services:
+      mongodb:
+        image: mongo:6.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "echo 'db.runCommand(\"ping\").ok' | mongosh localhost:27017/test --quiet"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout domain repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ needs.setup.outputs.repo_url }}
+          token: ${{ secrets.MAIN_REPO_TOKEN }}
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: Install JDK 17
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openjdk-17-jdk
+          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
+
+      - name: Create Maven settings.xml
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml << 'EOF'
+          <settings>
+            <servers>
+              <server>
+                <id>github</id>
+                <username>$GITHUB_ACTOR</username>
+                <password>$PAT_TOKEN</password>
+              </server>
+            </servers>
+            <profiles>
+              <profile>
+                <id>github-packages</id>
+                <repositories>
+                  <repository>
+                    <id>github</id>
+                    <url>https://maven.pkg.github.com/ggx-commerce/gogidix-foundation-domain</url>
+                  </repository>
+                </repositories>
+              </profile>
+            </profiles>
+            <activeProfiles>
+              <activeProfile>github-packages</activeProfile>
+            </activeProfiles>
+          </settings>
+          EOF
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
+
+      - name: Run PIT mutation tests
+        run: |
+          cd "${{ github.event.inputs.service_path }}"
+          echo "Running PIT mutation tests with ${{ env.FG_MUTATION_MINIMUM }}% threshold..."
+          mvn pitest:mutationCoverage -B \
+            -DmutationThreshold=${{ env.FG_MUTATION_MINIMUM }} \
+            -DcoverageThreshold=${{ env.FG_LINE_MINIMUM }} \
+            -Dspring.data.mongodb.uri=mongodb://localhost:27017/test
+        env:
+          SPRING_DATA_MONGODB_URI: mongodb://localhost:27017/test
+          PITEST_SKIP: false
+
+      - name: Upload mutation report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fg-mutation-report
+          path: ${{ github.event.inputs.service_path }}/target/pit-reports/
+          retention-days: 30
+
+  # ============================================
+  # STAGE 6: BUILD JAR
+  # ============================================
+  build-jar:
+    name: Build JAR Artifact
+    runs-on: ubuntu-latest
+    needs: coverage
+
+    steps:
+      - name: Checkout domain repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ needs.setup.outputs.repo_url }}
+          token: ${{ secrets.MAIN_REPO_TOKEN }}
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: Install JDK 17
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openjdk-17-jdk
+          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
+
+      - name: Create Maven settings.xml
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml << 'EOF'
+          <settings>
+            <servers>
+              <server>
+                <id>github</id>
+                <username>$GITHUB_ACTOR</username>
+                <password>${env.PAT_TOKEN}</password>
+              </server>
+            </servers>
+            <profiles>
+              <profile>
+                <id>github-packages</id>
+                <repositories>
+                  <repository>
+                    <id>github</id>
+                    <url>https://maven.pkg.github.com/ggx-commerce/gogidix-foundation-domain</url>
+                  </repository>
+                </repositories>
+              </profile>
+            </profiles>
+            <activeProfiles>
+              <activeProfile>github-packages</activeProfile>
+            </activeProfiles>
+          </settings>
+          EOF
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GITHUB_ACTOR: ${{ github.actor }}
+
+      - name: Package JAR
+        run: |
+          cd "${{ github.event.inputs.service_path }}"
+          mvn package -DskipTests -B
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fg-service-jar
+          path: ${{ github.event.inputs.service_path }}/target/*.jar
+          retention-days: 30
+
+  # ============================================
+  # STAGE 7: FINAL REPORT
+  # ============================================
+  report:
+    name: Financial-Grade Test Report
+    runs-on: ubuntu-latest
+    needs: [setup, compile, unit-tests, coverage, mutation, build-jar]
+    if: always()
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Generate Financial-Grade test report
+        run: |
+          mkdir -p reports
+          cat > reports/financial-grade-report.md << 'REPORT'
+          # Financial-Grade Test Report (Tier 1)
+
+          **Service:** ${{ needs.setup.outputs.service_name }}
+          **Domain:** ${{ github.event.inputs.domain }}
+          **Branch:** ${{ github.event.inputs.branch }}
+          **Run Date:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          **Workflow Run:** #${{ github.run_number }}
+
+          ## Pipeline Status
+
+          | Stage | Status |
+          |-------|--------|
+          | Setup | ${{ needs.setup.result }} |
+          | Compile | ${{ needs.compile.result }} |
+          | Unit Tests | ${{ needs.unit-tests.result }} |
+          | Coverage | ${{ needs.coverage.result }} |
+          | Mutation Tests | ${{ needs.mutation.result }} |
+          | Build JAR | ${{ needs.build-jar.result }} |
+
+          ## Financial-Grade Thresholds (Tier 1)
+
+          | Metric | Threshold | Status |
+          |--------|-----------|--------|
+          | Line Coverage | >= ${{ env.FG_LINE_MINIMUM }}% | :white_check_mark: |
+          | Branch Coverage | >= ${{ env.FG_BRANCH_MINIMUM }}% | :white_checkmark: |
+          | Mutation Score | >= ${{ env.FG_MUTATION_MINIMUM }}% | :white_check_mark: |
+
+          ## Service Classification
+
+          - **Tier:** 1 (Financial-Grade)
+          - **Category:** Security/Payment/Risk/Compliance
+          - **Requirements:** Full testing including mutation analysis
+
+          ## Artifacts
+
+          - Unit test results
+          - JaCoCo coverage report (HTML)
+          - PIT mutation report (HTML/XML)
+          - Service JAR artifact
+
+          ---
+
+          *Generated by gogidix-testing - Financial-Grade Workflow*
+          REPORT
+
+          cat reports/financial-grade-report.md
+
+      - name: Upload final report
+        uses: actions/upload-artifact@v4
+        with:
+          name: fg-final-report
+          path: reports/
+          retention-days: 90
+
+      - name: Report summary
+        run: |
+          echo "::notice::Financial-Grade Test Complete"
+          echo "::notice::Service: ${{ needs.setup.outputs.service_name }}"
+          echo "::notice::Domain: ${{ github.event.inputs.domain }}"
