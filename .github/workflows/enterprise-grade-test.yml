@@ -47,13 +47,17 @@ env:
   # Memory Configuration
   MAVEN_OPTS: '-Xms512m -Xmx1024m -XX:MaxMetaspaceSize=256m -XX:+UseG1GC'
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   # ============================================
   # STAGE 1: SETUP & VALIDATION
   # ============================================
   setup:
     name: Setup GitHub Packages
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     outputs:
       repo_url: ${{ steps.set_repo.outputs.repo_url }}
       service_name: ${{ steps.set_repo.outputs.service_name }}
@@ -137,7 +141,7 @@ jobs:
   # ============================================
   compile:
     name: Compile Service
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: setup
 
     steps:
@@ -206,7 +210,7 @@ jobs:
   # ============================================
   unit-tests:
     name: Unit Tests
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: compile
 
     services:
@@ -289,7 +293,7 @@ jobs:
   # ============================================
   coverage:
     name: Coverage Report (Enterprise-Grade)
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: unit-tests
 
     services:
@@ -385,7 +389,7 @@ jobs:
   # ============================================
   build-jar:
     name: Build JAR Artifact
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: coverage
 
     steps:
@@ -451,7 +455,7 @@ jobs:
   # ============================================
   report:
     name: Enterprise-Grade Test Report
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [setup, compile, unit-tests, coverage, build-jar]
     if: always()
 
