@@ -52,9 +52,6 @@ env:
   # Memory Configuration
   MAVEN_OPTS: '-Xms1024m -Xmx2048m -XX:MaxMetaspaceSize=512m -XX:+UseG1GC'
 
-defaults:
-  run:
-    shell: "C:/Program Files/Git/bin/bash.exe --noprofile --norc -eo pipefail {0}"
 
 jobs:
   # ============================================
@@ -62,7 +59,7 @@ jobs:
   # ============================================
   setup:
     name: Setup GitHub Packages
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     outputs:
       repo_url: ${{ steps.set_repo.outputs.repo_url }}
       service_name: ${{ steps.set_repo.outputs.service_name }}
@@ -146,7 +143,7 @@ jobs:
   # ============================================
   compile:
     name: Compile Service
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: setup
 
     steps:
@@ -215,7 +212,7 @@ jobs:
   # ============================================
   unit-tests:
     name: Unit Tests
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: compile
 
     services:
@@ -299,7 +296,7 @@ jobs:
   # ============================================
   coverage:
     name: Coverage Report (Financial-Grade)
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: unit-tests
 
     services:
@@ -408,7 +405,7 @@ jobs:
   # ============================================
   mutation:
     name: Mutation Tests (PIT)
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: coverage
     if: github.event.inputs.run_mutation == 'true'
 
@@ -494,7 +491,7 @@ jobs:
   # ============================================
   build-jar:
     name: Build JAR Artifact
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: coverage
 
     steps:
@@ -560,7 +557,7 @@ jobs:
   # ============================================
   report:
     name: Financial-Grade Test Report
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: [setup, compile, unit-tests, coverage, mutation, build-jar]
     if: always()
 
