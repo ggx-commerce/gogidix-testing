@@ -3,13 +3,10 @@ name: List Directory
 on:
   workflow_dispatch:
 
-defaults:
-  run:
-    shell: "C:/Program Files/Git/bin/bash.exe --noprofile --norc -eo pipefail {0}"
 
 jobs:
   list-files:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout shared-business-logics
         uses: actions/checkout@v4
