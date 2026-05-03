@@ -38,13 +38,17 @@ env:
   TEST_TIMEOUT_MINUTES: 60
   RETRY_COUNT: 3
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   # ============================================
   # DEPLOYMENT VALIDATION
   # ============================================
   validate-deployment:
     name: Validate Deployment Status
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     outputs:
       environment: ${{ steps.set_env.outputs.environment }}
       deployment_id: ${{ steps.set_env.outputs.deployment_id }}
@@ -77,7 +81,7 @@ jobs:
   # ============================================
   post-deploy-smoke:
     name: Post-Deployment Smoke Tests
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: validate-deployment
     timeout-minutes: 15
     
@@ -222,7 +226,7 @@ jobs:
   # ============================================
   api-contract-test:
     name: API Contract Validation
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [validate-deployment, post-deploy-smoke]
     
     steps:
@@ -361,7 +365,7 @@ jobs:
   # ============================================
   notify-status:
     name: Notify Deployment Status
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [validate-deployment, post-deploy-smoke, api-contract-test]
     if: always()
     
