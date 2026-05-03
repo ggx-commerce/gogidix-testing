@@ -38,9 +38,6 @@ env:
   TEST_TIMEOUT_MINUTES: 60
   RETRY_COUNT: 3
 
-defaults:
-  run:
-    shell: "C:/Program Files/Git/bin/bash.exe --noprofile --norc -eo pipefail {0}"
 
 jobs:
   # ============================================
@@ -48,7 +45,7 @@ jobs:
   # ============================================
   validate-deployment:
     name: Validate Deployment Status
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     outputs:
       environment: ${{ steps.set_env.outputs.environment }}
       deployment_id: ${{ steps.set_env.outputs.deployment_id }}
@@ -81,7 +78,7 @@ jobs:
   # ============================================
   post-deploy-smoke:
     name: Post-Deployment Smoke Tests
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: validate-deployment
     timeout-minutes: 15
     
@@ -226,7 +223,7 @@ jobs:
   # ============================================
   api-contract-test:
     name: API Contract Validation
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: [validate-deployment, post-deploy-smoke]
     
     steps:
@@ -365,7 +362,7 @@ jobs:
   # ============================================
   notify-status:
     name: Notify Deployment Status
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: [validate-deployment, post-deploy-smoke, api-contract-test]
     if: always()
     
