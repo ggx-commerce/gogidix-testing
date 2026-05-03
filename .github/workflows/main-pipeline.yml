@@ -98,13 +98,17 @@ env:
   COVERAGE_THRESHOLD_BRANCH: 75
   COVERAGE_THRESHOLD_MUTATION: 60
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   # ============================================
   # STAGE 1: SETUP & VALIDATION
   # ============================================
   setup:
     name: Setup & Validation
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     outputs:
       env_config: ${{ steps.set_env.outputs.env_config }}
       should_run_load: ${{ steps.set_env.outputs.should_run_load }}
@@ -169,7 +173,7 @@ jobs:
   # ============================================
   compile:
     name: Compile & Build
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: setup
     steps:
       - name: Checkout repository
@@ -240,7 +244,7 @@ jobs:
   # ============================================
   unit-tests:
     name: Unit Tests
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: compile
     steps:
       - name: Checkout repository
@@ -342,7 +346,7 @@ jobs:
   # ============================================
   build-jar:
     name: Build JAR Artifacts
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: unit-tests
     steps:
       - name: Checkout repository
@@ -412,7 +416,7 @@ jobs:
   # ============================================
   smoke-tests:
     name: Smoke Tests
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: build-jar
     if: |
       (github.event_name == 'workflow_dispatch' && 
@@ -560,7 +564,7 @@ jobs:
   # ============================================
   coverage:
     name: Coverage Analysis
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: smoke-tests
     if: |
       github.event_name == 'workflow_dispatch' && 
@@ -689,7 +693,7 @@ jobs:
   # ============================================
   load-tests:
     name: Load Tests
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: smoke-tests
     if: needs.setup.outputs.should_run_load == 'true'
     
@@ -825,7 +829,7 @@ jobs:
   # ============================================
   report:
     name: Generate Reports
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [setup, smoke-tests, coverage, load-tests]
     if: always()
     
@@ -1020,7 +1024,7 @@ jobs:
   # ============================================
   cleanup:
     name: Cleanup
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [setup, report]
     if: always()
     
