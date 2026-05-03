@@ -47,9 +47,6 @@ env:
   # Memory Configuration
   MAVEN_OPTS: '-Xms512m -Xmx1024m -XX:MaxMetaspaceSize=256m -XX:+UseG1GC'
 
-defaults:
-  run:
-    shell: "C:/Program Files/Git/bin/bash.exe --noprofile --norc -eo pipefail {0}"
 
 jobs:
   # ============================================
@@ -57,7 +54,7 @@ jobs:
   # ============================================
   setup:
     name: Setup GitHub Packages
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     outputs:
       repo_url: ${{ steps.set_repo.outputs.repo_url }}
       service_name: ${{ steps.set_repo.outputs.service_name }}
@@ -141,7 +138,7 @@ jobs:
   # ============================================
   compile:
     name: Compile Service
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: setup
 
     steps:
@@ -210,7 +207,7 @@ jobs:
   # ============================================
   unit-tests:
     name: Unit Tests
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: compile
 
     services:
@@ -293,7 +290,7 @@ jobs:
   # ============================================
   coverage:
     name: Coverage Report (Enterprise-Grade)
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: unit-tests
 
     services:
@@ -389,7 +386,7 @@ jobs:
   # ============================================
   build-jar:
     name: Build JAR Artifact
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: coverage
 
     steps:
@@ -455,7 +452,7 @@ jobs:
   # ============================================
   report:
     name: Enterprise-Grade Test Report
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: [setup, compile, unit-tests, coverage, build-jar]
     if: always()
 
