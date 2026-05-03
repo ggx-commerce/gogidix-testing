@@ -3,9 +3,13 @@ name: Show Compilation Error
 on:
   workflow_dispatch:
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   show-error:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - name: Checkout shared-business-logics
         uses: actions/checkout@v4
