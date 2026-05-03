@@ -41,13 +41,17 @@ env:
   COVERAGE_THRESHOLD_MUTATION: 60
   SERVICE_BASE_PATH: 'ai-services/Backend/Java/security-fraud-prevention'
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   # ============================================
   # STAGE 0: SETUP GITHUB PACKAGES
   # ============================================
   setup-github-packages:
     name: Setup GitHub Packages
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
       - name: Install JDK 17 manually (bypasses setup-java)
@@ -115,7 +119,7 @@ jobs:
   # ============================================
   compile:
     name: Compile Service
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: setup-github-packages
     outputs:
       service_path: ${{ steps.set_paths.outputs.service_path }}
@@ -228,7 +232,7 @@ jobs:
   # ============================================
   unit-tests:
     name: Unit Tests
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: compile
 
     services:
@@ -326,7 +330,7 @@ jobs:
   # ============================================
   build-jar:
     name: Build JAR
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: unit-tests
 
     steps:
@@ -404,7 +408,7 @@ jobs:
   # ============================================
   smoke-tests:
     name: Smoke Tests
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: build-jar
 
     services:
@@ -498,7 +502,7 @@ jobs:
   # ============================================
   coverage:
     name: Coverage Report
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [unit-tests, smoke-tests]
 
     services:
@@ -600,7 +604,7 @@ jobs:
   # ============================================
   mutation:
     name: Mutation Tests
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: coverage
     if: github.event.inputs.skip_mutation != 'true'
 
@@ -692,7 +696,7 @@ jobs:
   # ============================================
   report:
     name: Generate Final Report
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     needs: [compile, unit-tests, build-jar, smoke-tests, coverage]
     if: always()
 
